@@ -18,7 +18,7 @@ const cache = globalForSunoApi.sunoApiCache || new Map<string, SunoApi>();
 globalForSunoApi.sunoApiCache = cache;
 
 const logger = pino();
-export const DEFAULT_MODEL = 'chirp-crow'; // v5 (newest)
+export const DEFAULT_MODEL = 'chirp-fenix'; // v5 (newest)
 
 /**
  * Utility function to ensure error objects are proper Error instances
@@ -1096,7 +1096,7 @@ class SunoApi {
    *
    * @param prompt - Text description of the desired music (e.g., "upbeat jazz music about coding")
    * @param make_instrumental - If true, generates music without vocals. Defaults to false
-   * @param model - Model version to use. Defaults to 'chirp-crow' (v5)
+   * @param model - Model version to use. Defaults to 'chirp-fenix' (v5)
    * @param wait_audio - If true, waits until audio generation is complete before returning. Defaults to false
    * @returns Promise resolving to array of AudioInfo objects (typically 2 variations)
    * @throws Error if prompt is empty, generation fails, or CAPTCHA cannot be solved
@@ -1181,7 +1181,7 @@ class SunoApi {
    * @param tags - Musical style tags (e.g., "jazz, piano, slow tempo")
    * @param title - Title for the generated song
    * @param make_instrumental - If true, generates instrumental version. Defaults to false
-   * @param model - Model version to use. Defaults to 'chirp-crow' (v5)
+   * @param model - Model version to use. Defaults to 'chirp-fenix' (v5)
    * @param wait_audio - If true, waits until generation completes. Defaults to false
    * @param negative_tags - Style elements to avoid (e.g., "electronic, drums")
    * @returns Promise resolving to array of AudioInfo objects (typically 2 variations)
@@ -1404,7 +1404,7 @@ class SunoApi {
    * @param tags - Musical style tags for the extension. Defaults to empty string
    * @param negative_tags - Style elements to avoid. Defaults to empty string
    * @param title - Title for the extended song. Defaults to empty string
-   * @param model - Model version to use. Defaults to 'chirp-crow' (v5)
+   * @param model - Model version to use. Defaults to 'chirp-fenix' (v5)
    * @param wait_audio - If true, waits until generation completes. Defaults to false
    * @returns Promise resolving to array of AudioInfo objects with extended audio
    * @throws Error if audioId is invalid or continueAt is not a valid number
@@ -1687,6 +1687,186 @@ class SunoApi {
       throw new Error(`Error response: ${response.statusText}`);
     }
 
+    return response.data;
+  }
+
+  // ==================== Workspace (Project) API ====================
+
+  /**
+   * Get list of user's workspaces (projects).
+   *
+   * @param page - Page number (default 1)
+   * @param sort - Sort order (default 'max_created_at_last_updated_clip')
+   * @param showTrashed - Include trashed workspaces (default false)
+   * @returns Promise resolving to workspace list
+   *
+   * @example
+   * ```typescript
+   * const workspaces = await api.getWorkspaces();
+   * const page2 = await api.getWorkspaces(2);
+   * ```
+   */
+  public async getWorkspaces(
+    page: number = 1,
+    sort: string = 'max_created_at_last_updated_clip',
+    showTrashed: boolean = false
+  ): Promise<object> {
+    await this.keepAlive(false);
+    const url = new URL(`${SunoApi.BASE_URL}/api/project/me`);
+    url.searchParams.append('page', String(page));
+    url.searchParams.append('sort', sort);
+    url.searchParams.append('show_trashed', String(showTrashed));
+    url.searchParams.append('exclude_shared', 'false');
+
+    logger.info(`Get workspaces: ${url.href}`);
+    const response = await this.client.get(url.href, {
+      timeout: SunoApi.TIMEOUTS.API_FEED
+    });
+    return response.data;
+  }
+
+  /**
+   * Get a specific workspace by ID.
+   *
+   * @param projectId - Workspace UUID or 'default' for the default workspace
+   * @returns Promise resolving to workspace details
+   *
+   * @example
+   * ```typescript
+   * const workspace = await api.getWorkspace('default');
+   * const specific = await api.getWorkspace('55dabd09-b254-40ab-bc18-b65ddbb2c4c9');
+   * ```
+   */
+  public async getWorkspace(projectId: string): Promise<object> {
+    validateRequiredString(projectId, 'projectId');
+    await this.keepAlive(false);
+
+    logger.info(`Get workspace: ${projectId}`);
+    const response = await this.client.get(
+      `${SunoApi.BASE_URL}/api/project/${projectId}`,
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+    return response.data;
+  }
+
+  /**
+   * Create a new workspace.
+   *
+   * @param name - Workspace name
+   * @param description - Workspace description (default empty)
+   * @returns Promise resolving to created workspace data
+   *
+   * @example
+   * ```typescript
+   * const workspace = await api.createWorkspace('My Playlist', 'K-pop collection');
+   * ```
+   */
+  public async createWorkspace(name: string, description: string = ''): Promise<object> {
+    validateRequiredString(name, 'name');
+    await this.keepAlive(false);
+
+    logger.info(`Create workspace: ${name}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/project`,
+      { name, description },
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+    return response.data;
+  }
+
+  /**
+   * Trash or restore a workspace.
+   *
+   * @param projectId - Workspace UUID to trash/restore
+   * @param undoTrash - false to trash, true to restore (default false)
+   * @returns Promise resolving to response data
+   *
+   * @example
+   * ```typescript
+   * // Delete workspace
+   * await api.trashWorkspace('55dabd09-...');
+   * // Restore workspace
+   * await api.trashWorkspace('55dabd09-...', true);
+   * ```
+   */
+  public async trashWorkspace(projectId: string, undoTrash: boolean = false): Promise<object> {
+    validateRequiredString(projectId, 'projectId');
+    await this.keepAlive(false);
+
+    logger.info(`${undoTrash ? 'Restore' : 'Trash'} workspace: ${projectId}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/project/trash`,
+      { project_id: projectId, undo_trash: undoTrash },
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+    return response.data;
+  }
+
+  /**
+   * Move clips to a workspace.
+   *
+   * @param projectId - Target workspace UUID
+   * @param clipIds - Array of clip UUIDs to move
+   * @returns Promise resolving (204 No Content on success)
+   *
+   * @example
+   * ```typescript
+   * await api.moveClipsToWorkspace('55dabd09-...', ['clip-uuid-1', 'clip-uuid-2']);
+   * ```
+   */
+  public async moveClipsToWorkspace(projectId: string, clipIds: string[]): Promise<void> {
+    validateRequiredString(projectId, 'projectId');
+    if (!Array.isArray(clipIds) || clipIds.length === 0) {
+      throw new Error('clipIds must be a non-empty array');
+    }
+    await this.keepAlive(false);
+
+    logger.info(`Move ${clipIds.length} clips to workspace: ${projectId}`);
+    await this.client.post(
+      `${SunoApi.BASE_URL}/api/project/${projectId}/clips`,
+      { update_type: 'add', metadata: { clip_ids: clipIds } },
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+  }
+
+  /**
+   * Get songs in a workspace using feed v3 API.
+   *
+   * @param workspaceId - Workspace UUID or 'default'
+   * @param cursor - Pagination cursor (null for first page)
+   * @param limit - Number of items per page (default 20)
+   * @returns Promise resolving to feed data with clips and cursor
+   *
+   * @example
+   * ```typescript
+   * const feed = await api.getWorkspaceFeed('default');
+   * const page2 = await api.getWorkspaceFeed('default', feed.cursor);
+   * ```
+   */
+  public async getWorkspaceFeed(
+    workspaceId: string = 'default',
+    cursor: string | null = null,
+    limit: number = 20
+  ): Promise<object> {
+    validateRequiredString(workspaceId, 'workspaceId');
+    await this.keepAlive(false);
+
+    logger.info(`Get workspace feed: ${workspaceId}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/feed/v3`,
+      {
+        cursor,
+        limit,
+        filters: {
+          disliked: 'False',
+          trashed: 'False',
+          fromStudioProject: { presence: 'False' },
+          stem: { presence: 'False' },
+          workspace: { presence: 'True', workspaceId }
+        }
+      },
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
     return response.data;
   }
 }
