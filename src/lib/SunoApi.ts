@@ -1693,6 +1693,33 @@ class SunoApi {
   // ==================== Workspace (Project) API ====================
 
   /**
+   * Update workspace name and/or description.
+   *
+   * @param projectId - Workspace UUID
+   * @param name - New workspace name
+   * @param description - New workspace description (default empty)
+   * @returns Promise resolving to updated workspace data
+   *
+   * @example
+   * ```typescript
+   * await api.updateWorkspace('55dabd09-...', 'New Name', 'New description');
+   * ```
+   */
+  public async updateWorkspace(projectId: string, name: string, description: string = ''): Promise<object> {
+    validateRequiredString(projectId, 'projectId');
+    validateRequiredString(name, 'name');
+    await this.keepAlive(false);
+
+    logger.info(`Update workspace: ${projectId} → ${name}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/project/${projectId}/metadata`,
+      { name, description },
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+    return response.data;
+  }
+
+  /**
    * Get list of user's workspaces (projects).
    *
    * @param page - Page number (default 1)
