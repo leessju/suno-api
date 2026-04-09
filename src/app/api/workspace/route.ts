@@ -55,6 +55,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (action === 'update') {
+      const { project_id, name, description } = body;
+      if (!project_id || !name) {
+        return new NextResponse(JSON.stringify({ error: 'project_id and name are required' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
+      const data = await api.updateWorkspace(project_id, name, description);
+      return new NextResponse(JSON.stringify(data), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
     if (action === 'trash' || action === 'restore') {
       const { project_id } = body;
       if (!project_id) {
@@ -85,7 +100,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return new NextResponse(JSON.stringify({ error: 'Invalid action. Use: create, trash, restore, move_clips' }), {
+    return new NextResponse(JSON.stringify({ error: 'Invalid action. Use: create, update, trash, restore, move_clips' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
