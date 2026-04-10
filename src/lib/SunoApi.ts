@@ -1896,6 +1896,209 @@ class SunoApi {
     );
     return response.data;
   }
+
+  // ==================== Audio Upload & Generate v2-web API ====================
+
+  /**
+   * Upload an audio file to Suno as a reference.
+   * Multi-step process: create upload → PUT to presigned URL → finish → initialize clip.
+   *
+   * @param audioBuffer - Audio file buffer
+   * @param filename - Original filename (e.g. "my_song.mp3")
+   * @param extension - File extension (default "mp3")
+   * @returns Promise resolving to upload data including upload ID and clip ID
+   *
+   * @example
+   * ```typescript
+   * const fs = require('fs');
+   * const buf = fs.readFileSync('reference.mp3');
+   * const upload = await api.uploadAudio(buf, 'reference.mp3');
+   * ```
+   */
+  public async uploadAudio(
+    audioBuffer: Buffer,
+    filename: string,
+    extension: string = 'mp3'
+  ): Promise<object> {
+    validateRequiredString(filename, 'filename');
+    await this.keepAlive(false);
+
+    // Step 1: Create upload
+    logger.info(`Upload audio: creating upload for ${filename}`);
+    const createRes = await this.client.post(
+      `${SunoApi.BASE_URL}/api/uploads/audio/`,
+      { extension },
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+    const uploadData = createRes.data;
+    const uploadId = uploadData.id;
+    const presignedUrl = uploadData.upload_url;
+
+    // Step 2: PUT file to presigned URL
+    logger.info(`Upload audio: uploading file to presigned URL`);
+    const axios = (await import('axios')).default;
+    await axios.put(presignedUrl, audioBuffer, {
+      headers: { 'Content-Type': 'application/octet-stream' },
+      timeout: 120000,
+    });
+
+    // Step 3: Finish upload
+    logger.info(`Upload audio: finishing upload ${uploadId}`);
+    const finishRes = await this.client.post(
+      `${SunoApi.BASE_URL}/api/uploads/audio/${uploadId}/upload-finish/`,
+      { upload_type: 'file_upload', upload_filename: filename },
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+
+    // Step 4: Initialize clip
+    logger.info(`Upload audio: initializing clip`);
+    const initRes = await this.client.post(
+      `${SunoApi.BASE_URL}/api/uploads/audio/${uploadId}/initialize-clip/`,
+      {},
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+
+    return { uploadId, ...finishRes.data, clip: initRes.data };
+  }
+
+  /**
+   * Set metadata for an uploaded audio clip.
+   *
+   * @param clipId - Clip UUID from upload
+   * @param title - Title for the uploaded audio
+   * @param imageUrl - Cover image URL (optional)
+   * @returns Promise resolving to response data
+   */
+  public async setUploadMetadata(
+    clipId: string,
+    title: string,
+    imageUrl?: string
+  ): Promise<object> {
+    validateRequiredString(clipId, 'clipId');
+    validateRequiredString(title, 'title');
+    await this.keepAlive(false);
+
+    logger.info(`Set upload metadata: ${clipId} → ${title}`);
+    const body: Record<string, unknown> = {
+      title,
+      is_audio_upload_tos_accepted: true,
+    };
+    if (imageUrl) body.image_url = imageUrl;
+
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/gen/${clipId}/set_metadata/`,
+      body,
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+    return response.data;
+  }
+
+  /**
+   * Accept Gemini audio description for an uploaded clip.
+   *
+   * @param clipId - Clip UUID
+   * @returns Promise resolving to response data
+   */
+  public async acceptAudioDescription(clipId: string): Promise<object> {
+    validateRequiredString(clipId, 'clipId');
+    await this.keepAlive(false);
+
+    logger.info(`Accept audio description: ${clipId}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/gen/${clipId}/set_audio_description`,
+      { gemini_description_accepted: true },
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+    return response.data;
+  }
+
+  /**
+   * Generate a song using the v2-web endpoint with advanced controls.
+   * Supports vocal gender, weirdness, style weight, and reference audio.
+   *
+   * @param options - Generation options
+   * @returns Promise resolving to generated clips
+   *
+   * @example
+   * ```typescript
+   * const result = await api.generateV2Web({
+   *   title: 'My Song',
+   *   tags: 'j-pop, acoustic pop, 80 BPM',
+   *   prompt: '[Verse]\n...',
+   *   vocalGender: 'f',
+   *   weirdness: 0.6,
+   *   styleWeight: 0.9,
+   * });
+   * ```
+   */
+  public async generateV2Web(options: {
+    title: string;
+    tags: string;
+    prompt: string;
+    projectId?: string;
+    model?: string;
+    makeInstrumental?: boolean;
+    negativeTags?: string;
+    vocalGender?: 'f' | 'm' | null;
+    weirdness?: number;
+    styleWeight?: number;
+    coverClipId?: string | null;
+    coverStartS?: number | null;
+    coverEndS?: number | null;
+    personaId?: string | null;
+    artistClipId?: string | null;
+    artistStartS?: number | null;
+    artistEndS?: number | null;
+    continueClipId?: string | null;
+    continueAt?: number | null;
+  }): Promise<object> {
+    validateRequiredString(options.title, 'title');
+    validateRequiredString(options.tags, 'tags');
+    await this.keepAlive(false);
+
+    const body = {
+      project_id: options.projectId || null,
+      token: null,
+      generation_type: 'TEXT',
+      title: options.title,
+      tags: options.tags,
+      negative_tags: options.negativeTags || '',
+      mv: options.model || DEFAULT_MODEL,
+      prompt: options.prompt,
+      make_instrumental: options.makeInstrumental || false,
+      user_uploaded_images_b64: null,
+      metadata: {
+        create_mode: 'custom',
+        is_max_mode: false,
+        is_mumble: false,
+        disable_volume_normalization: false,
+        vocal_gender: options.vocalGender || null,
+        control_sliders: {
+          weirdness_constraint: options.weirdness ?? 0.5,
+          style_weight: options.styleWeight ?? 0.5,
+        },
+      },
+      override_fields: [],
+      cover_clip_id: options.coverClipId || null,
+      cover_start_s: options.coverStartS || null,
+      cover_end_s: options.coverEndS || null,
+      persona_id: options.personaId || null,
+      artist_clip_id: options.artistClipId || null,
+      artist_start_s: options.artistStartS || null,
+      artist_end_s: options.artistEndS || null,
+      continue_clip_id: options.continueClipId || null,
+      continued_aligned_prompt: null,
+      continue_at: options.continueAt || null,
+    };
+
+    logger.info(`Generate v2-web: ${options.title}`);
+    const response = await this.client.post(
+      `${SunoApi.BASE_URL}/api/generate/v2-web/`,
+      body,
+      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+    );
+    return response.data;
+  }
 }
 
 /**
