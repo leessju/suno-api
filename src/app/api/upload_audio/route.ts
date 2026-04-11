@@ -26,11 +26,15 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const uploadResult = await api.uploadAudio(buffer, filename, extension);
 
-    // Set metadata if clip ID available
+    // Set metadata if clip ID available (optional — Suno may auto-populate)
     const clipId = (uploadResult as any).clip?.id;
     if (clipId && title) {
-      await api.setUploadMetadata(clipId, title);
-      await api.acceptAudioDescription(clipId);
+      try {
+        await api.setUploadMetadata(clipId, title);
+        await api.acceptAudioDescription(clipId);
+      } catch (metaErr) {
+        console.warn('setUploadMetadata/acceptAudioDescription failed (non-fatal):', metaErr instanceof Error ? metaErr.message : metaErr);
+      }
     }
 
     return new NextResponse(JSON.stringify({ success: true, ...uploadResult }), {
@@ -38,9 +42,11 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   } catch (error) {
-    console.error('Error uploading audio:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errStack = error instanceof Error ? error.stack : '';
+    console.error('Error uploading audio:', errMsg, errStack);
     return new NextResponse(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: errMsg }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }

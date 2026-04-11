@@ -10,13 +10,30 @@ export async function POST(req: NextRequest) {
   if (req.method === 'POST') {
     try {
       const body = await req.json();
-      const { prompt, tags, title, make_instrumental, model, wait_audio, negative_tags } = body;
+      const {
+        prompt, tags, title, make_instrumental, model, wait_audio, negative_tags,
+        artist_clip_id, artist_start_s, artist_end_s,
+        // Cover / Inspo / Mashup / Sample options
+        cover_clip_id, is_remix,
+        playlist_clip_ids,
+        mashup_clip_ids,
+        chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s
+      } = body;
+
+      const modOptions = (cover_clip_id || playlist_clip_ids || mashup_clip_ids || chop_sample_clip_id)
+        ? { cover_clip_id, is_remix, playlist_clip_ids, mashup_clip_ids, chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s }
+        : undefined;
+
       const audioInfo = await (await sunoApi((await cookies()).toString())).custom_generate(
         prompt, tags, title,
         Boolean(make_instrumental),
         model || DEFAULT_MODEL,
         Boolean(wait_audio),
-        negative_tags
+        negative_tags,
+        artist_clip_id,
+        artist_start_s,
+        artist_end_s,
+        modOptions
       );
       return new NextResponse(JSON.stringify(audioInfo), {
         status: 200,

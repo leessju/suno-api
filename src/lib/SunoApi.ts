@@ -328,6 +328,41 @@ interface GenerateSongsPayload {
   title?: string;
   negative_tags?: string;
   gpt_description_prompt?: string;
+  artist_clip_id?: string | null;
+  artist_start_s?: number | null;
+  artist_end_s?: number | null;
+  // Cover mode
+  cover_clip_id?: string | null;
+  metadata?: { is_remix?: boolean; create_mode?: string };
+  // Inspo mode
+  playlist_id?: string;
+  playlist_clip_ids?: string[];
+  // Mashup mode
+  mashup_clip_ids?: string[];
+  // Sample mode
+  chop_sample_clip_id?: string;
+  chop_sample_start_s?: number;
+  chop_sample_end_s?: number;
+}
+
+/**
+ * Options for Cover / Inspo / Mashup / Sample generation modes.
+ */
+interface GenerateModOptions {
+  /** Cover mode: clip ID of the uploaded audio to cover */
+  cover_clip_id?: string;
+  /** Cover mode: treat as remix (default true when cover) */
+  is_remix?: boolean;
+  /** Inspo mode: array of clip IDs for inspiration */
+  playlist_clip_ids?: string[];
+  /** Mashup mode: array of two clip IDs to mashup */
+  mashup_clip_ids?: string[];
+  /** Sample mode: clip ID to sample from */
+  chop_sample_clip_id?: string;
+  /** Sample mode: start time in seconds */
+  chop_sample_start_s?: number;
+  /** Sample mode: end time in seconds */
+  chop_sample_end_s?: number;
 }
 
 /**
@@ -349,7 +384,7 @@ interface TranscribedWord {
 }
 
 class SunoApi {
-  private static BASE_URL: string = 'https://studio-api.prod.suno.com';
+  private static BASE_URL: string = 'https://studio-api-prod.suno.com';
   private static CLERK_BASE_URL: string = 'https://auth.suno.com';
   private static CLERK_VERSION = '5.117.0';
   private static CLERK_API_VERSION = '2025-11-10';
@@ -1207,7 +1242,11 @@ class SunoApi {
     make_instrumental: boolean = false,
     model?: string,
     wait_audio: boolean = false,
-    negative_tags?: string
+    negative_tags?: string,
+    artist_clip_id?: string,
+    artist_start_s?: number,
+    artist_end_s?: number,
+    modOptions?: GenerateModOptions
   ): Promise<AudioInfo[]> {
     validateRequiredString(prompt, 'prompt');
     validateRequiredString(tags, 'tags');
@@ -1223,7 +1262,14 @@ class SunoApi {
       make_instrumental,
       model,
       wait_audio,
-      negative_tags
+      negative_tags,
+      undefined,
+      undefined,
+      undefined,
+      artist_clip_id,
+      artist_start_s,
+      artist_end_s,
+      modOptions
     );
     const costTime = Date.now() - startTime;
     logger.info(
@@ -1258,7 +1304,11 @@ class SunoApi {
     negative_tags?: string,
     task?: string,
     continue_clip_id?: string,
-    continue_at?: number
+    continue_at?: number,
+    artist_clip_id?: string,
+    artist_start_s?: number,
+    artist_end_s?: number,
+    modOptions?: GenerateModOptions
   ): Promise<AudioInfo[]> {
     // Validate task parameter if provided
     validateOptionalString(task, 'task');
@@ -1270,6 +1320,19 @@ class SunoApi {
       validateRequiredString(continue_clip_id, 'continue_clip_id (required when task is "extend")');
     }
 
+    // Auto-determine task from modOptions if not explicitly set
+    if (!task && modOptions) {
+      if (modOptions.cover_clip_id) {
+        task = 'cover';
+      } else if (modOptions.playlist_clip_ids?.length) {
+        task = 'playlist_condition';
+      } else if (modOptions.mashup_clip_ids?.length) {
+        task = 'mashup_condition';
+      } else if (modOptions.chop_sample_clip_id) {
+        task = 'chop_sample_condition';
+      }
+    }
+
     await this.keepAlive();
     const payload: Partial<GenerateSongsPayload> = {
       make_instrumental: make_instrumental,
@@ -1278,9 +1341,36 @@ class SunoApi {
       generation_type: task === 'extend' ? 'EXTEND' : 'TEXT',
       continue_at: continue_at,
       continue_clip_id: continue_clip_id,
+      artist_clip_id: artist_clip_id || null,
+      artist_start_s: artist_start_s ?? null,
+      artist_end_s: artist_end_s ?? null,
       task: task,
       token: await this.getCaptcha()
     };
+
+    // Cover mode
+    if (task === 'cover' && modOptions?.cover_clip_id) {
+      payload.cover_clip_id = modOptions.cover_clip_id;
+      payload.metadata = {
+        is_remix: modOptions.is_remix !== false,
+        create_mode: isCustom ? 'custom' : undefined
+      };
+    }
+    // Inspo mode
+    if (task === 'playlist_condition' && modOptions?.playlist_clip_ids) {
+      payload.playlist_id = 'inspiration';
+      payload.playlist_clip_ids = modOptions.playlist_clip_ids;
+    }
+    // Mashup mode
+    if (task === 'mashup_condition' && modOptions?.mashup_clip_ids) {
+      payload.mashup_clip_ids = modOptions.mashup_clip_ids;
+    }
+    // Sample mode
+    if (task === 'chop_sample_condition' && modOptions?.chop_sample_clip_id) {
+      payload.chop_sample_clip_id = modOptions.chop_sample_clip_id;
+      payload.chop_sample_start_s = modOptions.chop_sample_start_s;
+      payload.chop_sample_end_s = modOptions.chop_sample_end_s;
+    }
     if (isCustom) {
       payload.tags = tags;
       payload.title = title;
@@ -1932,14 +2022,28 @@ class SunoApi {
     );
     const uploadData = createRes.data;
     const uploadId = uploadData.id;
-    const presignedUrl = uploadData.upload_url;
+    const s3Url = uploadData.url;
+    const s3Fields = uploadData.fields;
 
-    // Step 2: PUT file to presigned URL
-    logger.info(`Upload audio: uploading file to presigned URL`);
+    if (!s3Url || !s3Fields) {
+      throw new Error(`Unexpected upload response: ${JSON.stringify(uploadData).substring(0, 300)}`);
+    }
+
+    // Step 2: POST file to S3 (multipart form upload)
+    logger.info(`Upload audio: uploading file to S3 (${s3Url})`);
+    const FormData = (await import('form-data')).default;
+    const form = new FormData();
+    for (const [key, value] of Object.entries(s3Fields)) {
+      form.append(key, value as string);
+    }
+    form.append('file', audioBuffer, { filename, contentType: 'audio/mpeg' });
+
     const axios = (await import('axios')).default;
-    await axios.put(presignedUrl, audioBuffer, {
-      headers: { 'Content-Type': 'application/octet-stream' },
+    await axios.post(s3Url, form, {
+      headers: form.getHeaders(),
       timeout: 120000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
     });
 
     // Step 3: Finish upload
@@ -1949,16 +2053,41 @@ class SunoApi {
       { upload_type: 'file_upload', upload_filename: filename },
       { timeout: SunoApi.TIMEOUTS.API_GENERATE }
     );
+    logger.info(`upload-finish response: ${JSON.stringify(finishRes.data)}`);
 
-    // Step 4: Initialize clip
-    logger.info(`Upload audio: initializing clip`);
+    // Step 4: Poll upload status until complete
+    logger.info(`Upload audio: polling upload status for ${uploadId}`);
+    const pollStart = Date.now();
+    while ((Date.now() - pollStart) / 1000 < 60) {
+      const statusRes = await this.client.get(
+        `${SunoApi.BASE_URL}/api/uploads/audio/${uploadId}/`,
+        { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+      );
+      const data = statusRes.data;
+      logger.info(`Upload poll (${Math.round((Date.now() - pollStart) / 1000)}s): status=${data.status}`);
+      if (data.status === 'complete') break;
+      if (data.status === 'error' || data.status === 'failed') {
+        throw new Error(`Upload processing failed: ${JSON.stringify(data)}`);
+      }
+      await sleep(2, 2);
+    }
+
+    // Step 5: Initialize clip (requires browser-token header)
+    const browserToken = Buffer.from(JSON.stringify({ timestamp: Date.now() })).toString('base64');
+    logger.info(`Upload audio: initializing clip for ${uploadId}`);
     const initRes = await this.client.post(
       `${SunoApi.BASE_URL}/api/uploads/audio/${uploadId}/initialize-clip/`,
       {},
-      { timeout: SunoApi.TIMEOUTS.API_GENERATE }
+      {
+        timeout: SunoApi.TIMEOUTS.API_GENERATE,
+        headers: {
+          'browser-token': `{"token":"${browserToken}"}`,
+        }
+      }
     );
-
-    return { uploadId, ...finishRes.data, clip: initRes.data };
+    const clipData = initRes.data;
+    logger.info(`Upload audio: clip initialized — ${JSON.stringify(clipData)}`);
+    return { uploadId, clip: clipData };
   }
 
   /**
