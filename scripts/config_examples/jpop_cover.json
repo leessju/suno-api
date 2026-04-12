@@ -1,0 +1,31 @@
+{
+  "source": "https://youtube.com/watch?v=EXAMPLE",
+  "playlist": "jpop-vol10",
+  "channel": "jpop",
+  "model": "chirp-fenix",
+  "style": "emotional J-pop, acoustic pop, dramatic chord changes, cinematic atmosphere, analog warmth, uplifting chorus, bright piano, acoustic guitar, string ensemble",
+  "negative_tags": "",
+  "soundfont": "~/Music/soundfonts/FluidR3_GM.sf2",
+  "output_dir": "~/Music/suno-channels/jpop/260412_jpop-vol10",
+  "eq_mode": "auto",
+  "songs": [
+    {
+      "order": 1,
+      "title": "星の向こうへ",
+      "lyrics": "[Verse 1]\n夜空を見上げて 僕は立ち止まる\n遠い記憶の中 君の声が響く\n\n[Pre-Chorus]\nもう戻れないと 分かっていても\n\n[Chorus]\n星の向こうへ 手を伸ばして\nまだ届かない 光を追いかけて\n\n[Verse 2]\n雨上がりの街 水たまりに映る\nあの日の約束が 今も胸に残る\n\n[Chorus]\n星の向こうへ 手を伸ばして\nまだ届かない 光を追いかけて\n\n[Bridge]\n涙の数だけ 強くなれるなら\n僕はもう一度 歩き出せるから\n\n[Final Chorus]\n星の向こうへ 走り出して\nきっと届くよ この想いが",
+      "vocal_gender": "male",
+      "weirdness": 0.2,
+      "style_influence": 0.8,
+      "make_instrumental": false
+    },
+    {
+      "order": 2,
+      "title": "桜色の記憶",
+      "lyrics": "[Verse 1]\n桜が舞い散る 春の通学路\n君と歩いた日々 色褪せないまま\n\n[Chorus]\n桜色の記憶 胸に抱いて\n新しい季節へ 踏み出していく\n\n[Verse 2]\n卒業式の朝 言えなかった言葉\n今なら伝えられる ありがとうって\n\n[Chorus]\n桜色の記憶 胸に抱いて\n新しい季節へ 踏み出していく\n\n[Bridge]\nいつかまた会える その日まで\n\n[Outro]\n桜色の記憶...",
+      "vocal_gender": "female",
+      "weirdness": 0.3,
+      "style_influence": 0.7,
+      "make_instrumental": false
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "playlist": "jpop-ballad-vol3",
+  "channel": "jpop",
+  "model": "chirp-fenix",
+  "style": "emotional rock ballad, acoustic pop, dramatic chord changes, cinematic atmosphere, analog warmth, bright piano, string ensemble",
+  "negative_tags": "",
+  "output_dir": "~/Music/suno-channels/jpop/260412_jpop-ballad-vol3",
+  "eq_mode": "auto",
+  "songs": [
+    {
+      "order": 1,
+      "title": "夕焼けの約束",
+      "lyrics": "[Verse 1]\n放課後の教室 オレンジの光\n窓辺に座る君の横顔が\n今でも忘れられない\n\n[Pre-Chorus]\n時間が止まればいいのに\nそう願った あの瞬間\n\n[Chorus]\n夕焼けの約束 覚えてるかい\nいつかまた この場所で会おうって\n笑いながら 手を振った\nあの日の僕らに 戻れたなら\n\n[Verse 2]\n大人になった今 同じ空の下\n違う街で暮らす 僕と君\n\n[Chorus]\n夕焼けの約束 覚えてるかい\nいつかまた この場所で会おうって\n\n[Bridge]\n距離は離れても 心は近くに\n\n[Final Chorus]\n夕焼けの約束 果たしに行くよ\n走り出した足が 止まらない",
+      "vocal_gender": "male",
+      "make_instrumental": false
+    },
+    {
+      "order": 2,
+      "title": "雨のメロディー",
+      "lyrics": "[Verse 1]\n窓に落ちる雨粒 一つ一つ数えて\n退屈な午後を過ごしてた\n\n[Chorus]\n雨のメロディーが 聞こえてくるよ\n悲しみも洗い流してくれる\n\n[Verse 2]\n傘を忘れた帰り道 君が差し出した手\nあの温もりが今も\n\n[Chorus]\n雨のメロディーが 聞こえてくるよ\n全てを包み込む 優しい音色\n\n[Bridge]\n晴れた空より 雨の日が好き\n君を思い出せるから\n\n[Outro]\n雨のメロディー...",
+      "vocal_gender": "female",
+      "make_instrumental": false
+    },
+    {
+      "order": 3,
+      "title": "風のインストゥルメンタル",
+      "lyrics": "[Instrumental]",
+      "make_instrumental": true
+    }
+  ]
+}

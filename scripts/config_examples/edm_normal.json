@@ -1,0 +1,31 @@
+{
+  "playlist": "edm-energy-vol1",
+  "channel": "edm",
+  "model": "chirp-fenix",
+  "style": "progressive house, EDM, euphoric synths, driving bass, festival anthem, energetic drops, wide stereo, 128 BPM",
+  "negative_tags": "",
+  "output_dir": "~/Music/suno-channels/edm/260412_edm-energy-vol1",
+  "eq_mode": "master",
+  "songs": [
+    {
+      "order": 1,
+      "title": "Neon Horizon",
+      "lyrics": "[Intro]\n(Atmospheric synth build)\n\n[Verse 1]\nChasing lights through the midnight sky\nFeel the beat as the world flies by\nNo looking back, just the open road\nEvery heartbeat about to explode\n\n[Build]\nHigher, higher, we're rising up\nNothing can stop us now\n\n[Drop]\nNeon horizon, electric dreams\nNothing is ever what it seems\nLost in the music, lost in the sound\nFeet off the ground\n\n[Verse 2]\nStrangers dancing under the stars\nCity lights shining from afar\n\n[Drop]\nNeon horizon, electric dreams\nWe are the fire, we are the screams\n\n[Bridge]\n(Breakdown - piano + vocal chops)\n\n[Final Drop]\nNeon horizon...",
+      "vocal_gender": "male",
+      "make_instrumental": false
+    },
+    {
+      "order": 2,
+      "title": "Solar Flare",
+      "lyrics": "[Instrumental]",
+      "make_instrumental": true
+    },
+    {
+      "order": 3,
+      "title": "Midnight Protocol",
+      "lyrics": "[Verse 1]\nSignals in the dark, frequency unknown\nPulse is getting stronger, you're not alone\n\n[Build]\nLock in, sync up, we're breaking through\n\n[Drop]\nMidnight protocol, engage the sound\nShake the walls, shake the ground\nBass is heavy, lights are low\nLet the rhythm take control\n\n[Verse 2]\nBinary heartbeats, digital souls\nConnected by the bass that rolls\n\n[Drop]\nMidnight protocol, engage the sound\nWe won't stop till the sun comes round\n\n[Outro]\n(Fade out with reverb tail)",
+      "vocal_gender": "female",
+      "make_instrumental": false
+    }
+  ]
+}
