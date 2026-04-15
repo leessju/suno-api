@@ -74,12 +74,14 @@ async def handle_youtube_upload(payload: dict, db_path: str = './data/music-gen.
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaFileUpload
 
+        # 토큰 파일 내 client_id/secret 우선, env 변수 fallback
         creds = Credentials(
-            token=token.get('access_token'),
+            token=token.get('token') or token.get('access_token'),
             refresh_token=token.get('refresh_token'),
-            token_uri='https://oauth2.googleapis.com/token',
-            client_id=os.environ.get('YOUTUBE_CLIENT_ID', ''),
-            client_secret=os.environ.get('YOUTUBE_CLIENT_SECRET', ''),
+            token_uri=token.get('token_uri', 'https://oauth2.googleapis.com/token'),
+            client_id=token.get('client_id') or os.environ.get('YOUTUBE_CLIENT_ID', ''),
+            client_secret=token.get('client_secret') or os.environ.get('YOUTUBE_CLIENT_SECRET', ''),
+            scopes=token.get('scopes'),
         )
 
         youtube = build('youtube', 'v3', credentials=creds)
