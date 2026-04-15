@@ -42,8 +42,8 @@ thinkingBudget: 24576  (AI Studio "High" 수준)
 }
 ```
 
-**주의**: `vertex-ai-apikey` 타입은 `@google/genai@1.50.0`에서 `vertexai:true + apiKey` 동시 사용 불가 (SDK 에러). 사용 금지.  
-Vertex AI (`vertex-ai` 서비스 계정)는 fallback으로는 사용 가능하지만 `gemini-3-flash-preview`는 Vertex AI 엔드포인트에서 404 → `gemini-2.5-flash`로 폴백됨.
+**`vertex-ai-apikey` 타입**: `vertexai:true + apiKey` 조합으로 정상 동작 확인됨. `gemini-3-flash-preview`는 Vertex AI 엔드포인트에서 404 → `gemini-2.5-flash`로 자동 폴백됨.  
+Vertex AI (`vertex-ai` 서비스 계정) 방식도 사용 가능 (Bearer 토큰 자동 갱신).
 
 ### VERTEX_AI_FALLBACK 맵 (`account-pool.ts`)
 
@@ -173,7 +173,7 @@ PROFILES.creative_lyrics: { temperature: 1.0, topP: 0.95 }
 ```
 channel_id: 9
 channel_name: Lucid White
-lyric_format: jp2_en1  ([일어 2줄 + 영어 1줄] × N연)
+lyric_format: jp_tagged  (Suno 섹션 태그 + 일본어 가사)
 ```
 
 ---
@@ -182,7 +182,7 @@ lyric_format: jp2_en1  ([일어 2줄 + 영어 1줄] × N연)
 
 1. **responseSchema 제거**: Gemini의 responseSchema가 코드 보이싱을 단순화시킴 (Fmaj7 → F로 축약). free-form JSON + 프롬프트 지시로 대체.
 
-2. **vertex-ai-apikey 불가**: SDK v1.50.0에서 `vertexai:true + apiKey` 동시 사용 시 "Project/location and API key are mutually exclusive" 에러. accounts.json에서 제거.
+2. **vertex-ai-apikey 정상 동작 확인**: 초기 SDK v1.50.0에서 에러가 있었으나 현재는 `vertexai:true + apiKey` 조합 정상 동작. `gemini-api` 또는 `vertex-ai-apikey` 모두 사용 가능.
 
 3. **Few-shot 오염**: 프롬프트 내 구체적 수치 예시(BPM, 장르)가 hallucination 유발. 전부 추상적 placeholder로 교체.
 

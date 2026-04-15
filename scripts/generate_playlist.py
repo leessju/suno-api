@@ -411,8 +411,10 @@ def generate_song(song, config, cover_clip_id=None):
         payload["is_remix"] = True
         if "weirdness" in song:
             payload["weirdness"] = song["weirdness"]
-        if "style_influence" in song:
-            payload["style_influence"] = song["style_influence"]
+        if "style_weight" in song:
+            payload["style_weight"] = song["style_weight"]
+        elif "style_influence" in song:  # 하위 호환 (구 파라미터명)
+            payload["style_weight"] = song["style_influence"]
 
     print(f"  Payload: model={payload['mv']}, cover={'yes' if cover_clip_id else 'no'}")
     data = api_post("/custom_generate", payload)
