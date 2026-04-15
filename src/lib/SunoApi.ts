@@ -11,6 +11,7 @@ import { BrowserContext, Page, Locator, chromium, firefox } from 'rebrowser-play
 import { createCursor, Cursor } from 'ghost-cursor-playwright';
 import { promises as fs } from 'fs';
 import path from 'node:path';
+import { getDb } from './music-gen/db';
 
 // sunoApi instance caching
 const globalForSunoApi = global as unknown as { sunoApiCache?: Map<string, SunoApi> };
@@ -23,11 +24,29 @@ export interface SunoAccount {
   is_default: boolean;
 }
 
+// DB 계정 조회 (env fallback 포함)
+function getSunoAccountsFromDb(): Array<{id: number; label: string; cookie: string}> {
+  try {
+    const db = getDb();
+    const rows = db.prepare(
+      'SELECT id, label, cookie FROM suno_accounts WHERE is_active = 1 ORDER BY id'
+    ).all() as Array<{id: number; label: string; cookie: string}>;
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 /**
- * Scans env vars for SUNO_COOKIE_1, SUNO_COOKIE_2, ... and returns available accounts.
+ * Scans DB first, then env vars for SUNO_COOKIE_1, SUNO_COOKIE_2, ... and returns available accounts.
  * Falls back to legacy SUNO_COOKIE as account 0.
  */
 export function getAccounts(): SunoAccount[] {
+  const dbAccounts = getSunoAccountsFromDb();
+  if (dbAccounts.length > 0) {
+    return dbAccounts.map((a, i) => ({ id: a.id, label: a.label, is_default: i === 0 }));
+  }
+  // env fallback
   const accounts: SunoAccount[] = [];
   for (let i = 1; i <= 10; i++) {
     const cookie = process.env[`SUNO_COOKIE_${i}`];
@@ -45,14 +64,24 @@ export function getAccounts(): SunoAccount[] {
 
 /**
  * Resolves the cookie string for a given account number.
- * - account 1~10 → SUNO_COOKIE_N
- * - account 0 or undefined → SUNO_COOKIE (legacy) or SUNO_COOKIE_1
+ * DB 우선, env fallback.
  */
 function resolveAccountCookie(account?: number): string | undefined {
+  try {
+    const dbAccounts = getSunoAccountsFromDb();
+    if (dbAccounts.length > 0) {
+      if (account !== undefined && account >= 1) {
+        const found = dbAccounts.find(a => a.id === account);
+        if (found) return found.cookie;
+      }
+      // default: id가 가장 낮은 활성 계정
+      return dbAccounts[0]?.cookie;
+    }
+  } catch {}
+  // env fallback
   if (account !== undefined && account >= 1) {
     return process.env[`SUNO_COOKIE_${account}`];
   }
-  // Default: try SUNO_COOKIE_1 first, then legacy SUNO_COOKIE
   return process.env.SUNO_COOKIE_1 || process.env.SUNO_COOKIE;
 }
 

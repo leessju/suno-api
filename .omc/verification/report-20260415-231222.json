@@ -1,0 +1,11 @@
+{
+  "pass": 2,
+  "fail": 1,
+  "stub": 0,
+  "total": 3,
+  "depth": "L2",
+  "errors": [
+    "API server unhealthy"
+  ],
+  "verdict": "FAIL"
+}

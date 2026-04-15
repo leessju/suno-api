@@ -3,10 +3,7 @@ import { getDb } from './music-gen/db'
 
 // 기존 getDb() 재사용 — mkdirSync + migration 포함된 싱글톤
 export const auth = betterAuth({
-  database: {
-    type: 'sqlite',
-    db: getDb(),
-  },
+  database: getDb(),
   emailAndPassword: {
     enabled: true,
   },

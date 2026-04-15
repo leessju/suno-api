@@ -32,6 +32,20 @@ function runMigrations(db: Database.Database): void {
   );
   db.exec(migration002);
 
+  // 003: Suno 계정 DB 관리 (IF NOT EXISTS — 멱등)
+  const migration003 = fs.readFileSync(
+    path.join(base, 'migrations/003_suno_accounts.sql'),
+    'utf-8',
+  );
+  db.exec(migration003);
+
+  // 004: better-auth 테이블 (IF NOT EXISTS — 멱등)
+  const migration004 = fs.readFileSync(
+    path.join(base, 'migrations/004_better_auth.sql'),
+    'utf-8',
+  );
+  db.exec(migration004);
+
   // channels.resource_path 컬럼 추가 (SQLite는 IF NOT EXISTS를 미지원 → pragma로 체크)
   const channelCols = db
     .pragma('table_info(channels)') as Array<{ name: string }>;

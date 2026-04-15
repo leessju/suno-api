@@ -187,6 +187,169 @@
       ]
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": "src/lib/SunoApi.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776268756603,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/db.ts",
+      "accessCount": 4,
+      "lastAccessed": 1776269239251,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 2,
+      "lastAccessed": 1776268719068,
+      "type": "directory"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776269141013,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262599268,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/workspaces/new/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262599438,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/workspaces/[id]/variants/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262599854,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/workspaces/[id]/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262600064,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/approvals/[id]/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262600275,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/queue/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262600483,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/assets/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262600904,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/tracks/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262601122,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/settings/telegram/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262601329,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/openclaw/page.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1776262601469,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1776267204368,
+      "type": "directory"
+    },
+    {
+      "path": "src/app/api/health/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776267338450,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/credits-sync.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268557283,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/migrations/002_product_layer.sql",
+      "accessCount": 1,
+      "lastAccessed": 1776268669408,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/migrations/003_suno_accounts.sql",
+      "accessCount": 1,
+      "lastAccessed": 1776268724464,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/proxy.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268755640,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/suno-accounts/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268767092,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/token-refresh-daemon.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268799527,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/account-manager.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268879249,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776268883291,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/README-oauth.md",
+      "accessCount": 1,
+      "lastAccessed": 1776268887257,
+      "type": "file"
+    },
+    {
+      "path": "workers/python/stages/upload.py",
+      "accessCount": 1,
+      "lastAccessed": 1776268922558,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/migrations/004_better_auth.sql",
+      "accessCount": 1,
+      "lastAccessed": 1776269232452,
+      "type": "file"
+    }
+  ],
   "userDirectives": []
 }
