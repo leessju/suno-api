@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
-import { cookies } from 'next/headers';
 import { DEFAULT_MODEL, sunoApi } from "@/lib/SunoApi";
-import { corsHeaders } from "@/lib/utils";
+import { corsHeaders, extractAccount } from "@/lib/utils";
 
 export const maxDuration = 60; // allow longer timeout for wait_audio == true
 export const dynamic = "force-dynamic";
@@ -24,7 +23,8 @@ export async function POST(req: NextRequest) {
         ? { cover_clip_id, is_remix, playlist_clip_ids, mashup_clip_ids, chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s }
         : undefined;
 
-      const audioInfo = await (await sunoApi((await cookies()).toString())).custom_generate(
+      const account = extractAccount(body);
+      const audioInfo = await (await sunoApi(account)).custom_generate(
         prompt, tags, title,
         Boolean(make_instrumental),
         model || DEFAULT_MODEL,

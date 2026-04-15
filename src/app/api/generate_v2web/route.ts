@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import { sunoApi } from '@/lib/SunoApi';
-import { corsHeaders } from '@/lib/utils';
+import { corsHeaders, extractAccount } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +16,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const cookie = (await cookies()).toString();
-    const api = await sunoApi(cookie);
+    const account = extractAccount(body);
+    const api = await sunoApi(account);
 
     const result = await api.generateV2Web({
       title,
@@ -31,6 +30,7 @@ export async function POST(req: NextRequest) {
       vocalGender: body.vocal_gender,
       weirdness: body.weirdness,
       styleWeight: body.style_weight,
+      audioWeight: body.audio_weight,
       coverClipId: body.cover_clip_id,
       coverStartS: body.cover_start_s,
       coverEndS: body.cover_end_s,

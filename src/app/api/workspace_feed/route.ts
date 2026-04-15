@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import { sunoApi } from '@/lib/SunoApi';
-import { corsHeaders } from '@/lib/utils';
+import { corsHeaders, extractAccount } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,9 +10,9 @@ export async function GET(req: NextRequest) {
     const workspaceId = url.searchParams.get('workspace_id') || 'default';
     const cursor = url.searchParams.get('cursor') || null;
     const limit = Number(url.searchParams.get('limit') || '20');
-    const cookie = (await cookies()).toString();
+    const account = extractAccount(undefined, req.url);
 
-    const api = await sunoApi(cookie);
+    const api = await sunoApi(account);
     const data = await api.getWorkspaceFeed(workspaceId, cursor, limit);
 
     return new NextResponse(JSON.stringify(data), {

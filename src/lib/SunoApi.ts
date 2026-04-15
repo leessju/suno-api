@@ -17,6 +17,45 @@ const globalForSunoApi = global as unknown as { sunoApiCache?: Map<string, SunoA
 const cache = globalForSunoApi.sunoApiCache || new Map<string, SunoApi>();
 globalForSunoApi.sunoApiCache = cache;
 
+export interface SunoAccount {
+  id: number;
+  label: string;
+  is_default: boolean;
+}
+
+/**
+ * Scans env vars for SUNO_COOKIE_1, SUNO_COOKIE_2, ... and returns available accounts.
+ * Falls back to legacy SUNO_COOKIE as account 0.
+ */
+export function getAccounts(): SunoAccount[] {
+  const accounts: SunoAccount[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const cookie = process.env[`SUNO_COOKIE_${i}`];
+    if (cookie) {
+      const label = process.env[`SUNO_ACCOUNT_${i}_LABEL`] || `Account ${i}`;
+      accounts.push({ id: i, label, is_default: i === 1 });
+    }
+  }
+  // Legacy fallback: SUNO_COOKIE without number → treat as account 0
+  if (accounts.length === 0 && process.env.SUNO_COOKIE) {
+    accounts.push({ id: 0, label: process.env.SUNO_ACCOUNT_LABEL || 'Default', is_default: true });
+  }
+  return accounts;
+}
+
+/**
+ * Resolves the cookie string for a given account number.
+ * - account 1~10 → SUNO_COOKIE_N
+ * - account 0 or undefined → SUNO_COOKIE (legacy) or SUNO_COOKIE_1
+ */
+function resolveAccountCookie(account?: number): string | undefined {
+  if (account !== undefined && account >= 1) {
+    return process.env[`SUNO_COOKIE_${account}`];
+  }
+  // Default: try SUNO_COOKIE_1 first, then legacy SUNO_COOKIE
+  return process.env.SUNO_COOKIE_1 || process.env.SUNO_COOKIE;
+}
+
 const logger = pino();
 export const DEFAULT_MODEL = 'chirp-fenix'; // v5 (newest)
 
@@ -147,26 +186,23 @@ function sanitize(data: any): any {
  * @throws Error if required environment variables are missing or invalid
  */
 function validateEnvironment(): void {
-  const requiredVars = {
-    SUNO_COOKIE: process.env.SUNO_COOKIE,
+  // Check that at least one Suno cookie is configured (SUNO_COOKIE_1 or legacy SUNO_COOKIE)
+  const hasCookie = process.env.SUNO_COOKIE_1 || process.env.SUNO_COOKIE;
+  if (!hasCookie) {
+    throw new Error(
+      'Missing required environment variable: SUNO_COOKIE_1 (or legacy SUNO_COOKIE). Please set it in your .env file.'
+    );
+  }
+
+  const optionalVars = {
     TWOCAPTCHA_KEY: process.env.TWOCAPTCHA_KEY
   };
 
-  const missing: string[] = [];
   const invalid: string[] = [];
-
-  for (const [name, value] of Object.entries(requiredVars)) {
-    if (!value) {
-      missing.push(name);
-    } else if (typeof value !== 'string' || value.trim().length === 0) {
+  for (const [name, value] of Object.entries(optionalVars)) {
+    if (value !== undefined && value.trim().length === 0) {
       invalid.push(name);
     }
-  }
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}. Please set these variables in your .env file or environment.`
-    );
   }
 
   if (invalid.length > 0) {
@@ -175,9 +211,7 @@ function validateEnvironment(): void {
     );
   }
 
-  logger.info('Environment validation passed', {
-    variables: Object.keys(requiredVars)
-  });
+  logger.info('Environment validation passed');
 }
 
 /**
@@ -1699,6 +1733,28 @@ class SunoApi {
   }
 
   /**
+   * Fetch waveform aggregate data for a clip.
+   * Returns amplitude data used for waveform visualization during audio playback.
+   *
+   * @param clipId - Clip UUID
+   * @returns Promise resolving to waveform data (array of amplitude values)
+   *
+   * @example
+   * ```typescript
+   * const waveform = await api.getWaveformAggregates('clip-id-123');
+   * ```
+   */
+  public async getWaveformAggregates(clipId: string): Promise<unknown> {
+    validateRequiredString(clipId, 'clipId');
+    await this.keepAlive(false);
+    const response = await this.client.get(
+      `${SunoApi.BASE_URL}/api/gen/${clipId}/waveform-aggregates`,
+      { timeout: SunoApi.TIMEOUTS.API_FEED }
+    );
+    return response.data;
+  }
+
+  /**
    * Get account credit balance and usage information.
    * Shows remaining credits, billing period, and monthly limits.
    *
@@ -2171,6 +2227,7 @@ class SunoApi {
     vocalGender?: 'f' | 'm' | null;
     weirdness?: number;
     styleWeight?: number;
+    audioWeight?: number;
     coverClipId?: string | null;
     coverStartS?: number | null;
     coverEndS?: number | null;
@@ -2205,8 +2262,11 @@ class SunoApi {
         control_sliders: {
           weirdness_constraint: options.weirdness ?? 0.5,
           style_weight: options.styleWeight ?? 0.5,
+          ...(options.coverClipId ? { audio_weight: options.audioWeight ?? 0.81 } : {}),
         },
+        ...(options.coverClipId ? { is_remix: true } : {}),
       },
+      ...(options.coverClipId ? { task: 'cover' } : {}),
       override_fields: [],
       cover_clip_id: options.coverClipId || null,
       cover_start_s: options.coverStartS || null,
@@ -2251,11 +2311,26 @@ class SunoApi {
  * const sameApi = await sunoApi(); // Returns cached instance
  * ```
  */
-export const sunoApi = async (cookie?: string) => {
-  const resolvedCookie = cookie && cookie.includes('__client') ? cookie : process.env.SUNO_COOKIE; // Check for bad `Cookie` header (It's too expensive to actually parse the cookies *here*)
+export const sunoApi = async (cookieOrAccount?: string | number) => {
+  let resolvedCookie: string | undefined;
+
+  if (typeof cookieOrAccount === 'number') {
+    // Account number → resolve from env
+    resolvedCookie = resolveAccountCookie(cookieOrAccount);
+  } else if (typeof cookieOrAccount === 'string' && cookieOrAccount.includes('__client')) {
+    // Direct cookie string (from request Cookie header)
+    resolvedCookie = cookieOrAccount;
+  } else {
+    // No valid input → use default account
+    resolvedCookie = resolveAccountCookie();
+  }
+
   if (!resolvedCookie) {
-    logger.info('No cookie provided! Aborting...\nPlease provide a cookie either in the .env file or in the Cookie header of your request.')
-    throw new Error('Please provide a cookie either in the .env file or in the Cookie header of your request.');
+    const msg = typeof cookieOrAccount === 'number'
+      ? `Account ${cookieOrAccount} not configured. Set SUNO_COOKIE_${cookieOrAccount} in .env`
+      : 'No cookie provided! Set SUNO_COOKIE_1 (or SUNO_COOKIE) in .env';
+    logger.info(msg);
+    throw new Error(msg);
   }
 
   // Check if the instance for this cookie already exists in the cache

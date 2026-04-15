@@ -116,3 +116,24 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
+
+/**
+ * Extracts account number from request body (POST) or query params (GET).
+ * Returns undefined if not specified (will use default account).
+ */
+export function extractAccount(body?: Record<string, any>, url?: string): number | undefined {
+  // From POST body
+  if (body?.account !== undefined && body.account !== null) {
+    const n = Number(body.account);
+    if (!isNaN(n) && n >= 0) return n;
+  }
+  // From query params (GET)
+  if (url) {
+    const account = new URL(url).searchParams.get('account');
+    if (account !== null) {
+      const n = Number(account);
+      if (!isNaN(n) && n >= 0) return n;
+    }
+  }
+  return undefined;
+}

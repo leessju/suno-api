@@ -36,6 +36,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# music-gen data & secrets
+data/*.db
+config/accounts.json
+config/credentials_*.json
+
 .idea
 
 # Private documentation

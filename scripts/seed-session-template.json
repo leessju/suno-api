@@ -1,0 +1,5 @@
+{
+  "_comment": "Lucid White 세션 생성 시 기본 constraints_json 템플릿 (곡별 고정 제약사항 — 요약 대상 제외)",
+  "title": "새 곡 작업",
+  "constraints_json": "{\"vocal\":\"female — fragile, breathy\",\"mood\":\"melancholic clarity, 새벽 4시의 고요\",\"reference_direction\":\"슬로우 템포, 최소 편곡, 피아노 중심\",\"visual_context\":\"editorial magazine, 흑백 필름\"}"
+}

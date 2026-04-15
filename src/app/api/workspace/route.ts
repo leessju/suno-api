@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import { sunoApi } from '@/lib/SunoApi';
-import { corsHeaders } from '@/lib/utils';
+import { corsHeaders, extractAccount } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +11,9 @@ export async function GET(req: NextRequest) {
     const sort = url.searchParams.get('sort') || 'max_created_at_last_updated_clip';
     const showTrashed = url.searchParams.get('show_trashed') === 'true';
     const projectId = url.searchParams.get('id');
-    const cookie = (await cookies()).toString();
+    const account = extractAccount(undefined, req.url);
 
-    const api = await sunoApi(cookie);
+    const api = await sunoApi(account);
     const data = projectId
       ? await api.getWorkspace(projectId)
       : await api.getWorkspaces(page, sort, showTrashed);
@@ -35,8 +34,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const cookie = (await cookies()).toString();
-    const api = await sunoApi(cookie);
+    const account = extractAccount(body);
+    const api = await sunoApi(account);
 
     const { action } = body;
 

@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import { sunoApi } from '@/lib/SunoApi';
-import { corsHeaders } from '@/lib/utils';
+import { corsHeaders, extractAccount } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +19,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const cookie = (await cookies()).toString();
-    const api = await sunoApi(cookie);
+    const accountParam = formData.get('account') as string | null;
+    const account = accountParam !== null && !isNaN(Number(accountParam)) && Number(accountParam) >= 0
+      ? Number(accountParam) : undefined;
+    const projectId = formData.get('project_id') as string | null;
+    const api = await sunoApi(account);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const uploadResult = await api.uploadAudio(buffer, filename, extension);
@@ -34,6 +36,15 @@ export async function POST(req: NextRequest) {
         await api.acceptAudioDescription(clipId);
       } catch (metaErr) {
         console.warn('setUploadMetadata/acceptAudioDescription failed (non-fatal):', metaErr instanceof Error ? metaErr.message : metaErr);
+      }
+    }
+
+    // Move clip to workspace if project_id provided
+    if (clipId && projectId) {
+      try {
+        await api.moveClipsToWorkspace(projectId, [clipId]);
+      } catch (wsErr) {
+        console.warn('moveClipsToWorkspace failed (non-fatal):', wsErr instanceof Error ? wsErr.message : wsErr);
       }
     }
 

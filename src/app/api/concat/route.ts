@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
-import { cookies } from 'next/headers'
 import { sunoApi } from "@/lib/SunoApi";
-import { corsHeaders } from "@/lib/utils";
+import { corsHeaders, extractAccount } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +18,8 @@ export async function POST(req: NextRequest) {
           }
         });
       }
-      const audioInfo = await (await sunoApi((await cookies()).toString())).concatenate(clip_id);
+      const account = extractAccount(body);
+      const audioInfo = await (await sunoApi(account)).concatenate(clip_id);
       return new NextResponse(JSON.stringify(audioInfo), {
         status: 200,
         headers: {
