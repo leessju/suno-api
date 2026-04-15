@@ -195,21 +195,63 @@
       "type": "file"
     },
     {
+      "path": "",
+      "accessCount": 5,
+      "lastAccessed": 1776294514826,
+      "type": "directory"
+    },
+    {
       "path": "src/lib/music-gen/db.ts",
       "accessCount": 4,
       "lastAccessed": 1776269239251,
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 2,
-      "lastAccessed": 1776268719068,
-      "type": "directory"
+      "path": "workers/python/stages/upload.py",
+      "accessCount": 3,
+      "lastAccessed": 1776269757390,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/account-manager.ts",
+      "accessCount": 3,
+      "lastAccessed": 1776294519047,
+      "type": "file"
+    },
+    {
+      "path": "workers/python/agents/approval_orchestrator.py",
+      "accessCount": 3,
+      "lastAccessed": 1776294549841,
+      "type": "file"
+    },
+    {
+      "path": "src/instrumentation.ts",
+      "accessCount": 3,
+      "lastAccessed": 1776295241720,
+      "type": "file"
     },
     {
       "path": "src/lib/auth.ts",
       "accessCount": 2,
       "lastAccessed": 1776269141013,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils/proxy.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776294585963,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/suno-accounts/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776294593070,
+      "type": "file"
+    },
+    {
+      "path": "next.config.mjs",
+      "accessCount": 2,
+      "lastAccessed": 1776294598366,
       "type": "file"
     },
     {
@@ -303,27 +345,9 @@
       "type": "file"
     },
     {
-      "path": "src/lib/utils/proxy.ts",
-      "accessCount": 1,
-      "lastAccessed": 1776268755640,
-      "type": "file"
-    },
-    {
-      "path": "src/app/api/music-gen/suno-accounts/route.ts",
-      "accessCount": 1,
-      "lastAccessed": 1776268767092,
-      "type": "file"
-    },
-    {
       "path": "src/lib/utils/token-refresh-daemon.ts",
       "accessCount": 1,
       "lastAccessed": 1776268799527,
-      "type": "file"
-    },
-    {
-      "path": "src/lib/utils/account-manager.ts",
-      "accessCount": 1,
-      "lastAccessed": 1776268879249,
       "type": "file"
     },
     {
@@ -339,16 +363,34 @@
       "type": "file"
     },
     {
-      "path": "workers/python/stages/upload.py",
-      "accessCount": 1,
-      "lastAccessed": 1776268922558,
-      "type": "file"
-    },
-    {
       "path": "src/lib/music-gen/migrations/004_better_auth.sql",
       "accessCount": 1,
       "lastAccessed": 1776269232452,
       "type": "file"
+    },
+    {
+      "path": "workers/python/utils/__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1776294538561,
+      "type": "file"
+    },
+    {
+      "path": "workers/python/utils/claude_auth.py",
+      "accessCount": 1,
+      "lastAccessed": 1776294545934,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/claude-oauth/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776294558567,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api",
+      "accessCount": 1,
+      "lastAccessed": 1776294585465,
+      "type": "directory"
     }
   ],
   "userDirectives": []

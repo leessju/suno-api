@@ -14,6 +14,7 @@ const nextConfig = {
       'better-sqlite3',
       'rebrowser-playwright-core',
       'ghost-cursor-playwright',
+      'undici',
     ],
   },
 };  

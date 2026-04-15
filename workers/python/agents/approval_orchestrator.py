@@ -79,8 +79,8 @@ reject 기준: 점수 50점 미만
 abstain: 판단 보류"""
 
     try:
-        import anthropic
-        client = anthropic.Anthropic()
+        from utils.claude_auth import get_client as _get_claude_client
+        client = _get_claude_client()
 
         response = client.messages.create(
             model=model,

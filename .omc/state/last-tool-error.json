@@ -1,7 +1,0 @@
-{
-  "tool_name": "Read",
-  "tool_input_preview": "{\"file_path\":\"/Users/nicejames/Projects/clones/zach-suno-api/.claude/worktrees/site/src/lib/SunoApi.ts\"}",
-  "error": "File content (25024 tokens) exceeds maximum allowed tokens (10000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.",
-  "timestamp": "2026-04-15T15:58:33.435Z",
-  "retry_count": 2
-}
