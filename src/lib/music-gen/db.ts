@@ -19,7 +19,24 @@ export function getDb(): Database.Database {
 
 function runMigrations(db: Database.Database): void {
   // __dirname resolves incorrectly under Next.js webpack; use process.cwd() instead
-  const schemaPath = path.join(process.cwd(), 'src/lib/music-gen/schema.sql');
-  const schema = fs.readFileSync(schemaPath, 'utf-8');
+  const base = path.join(process.cwd(), 'src/lib/music-gen');
+
+  // 001: 기존 베이스 스키마
+  const schema = fs.readFileSync(path.join(base, 'schema.sql'), 'utf-8');
   db.exec(schema);
+
+  // 002: 프로덕트 레이어 (IF NOT EXISTS — 멱등)
+  const migration002 = fs.readFileSync(
+    path.join(base, 'migrations/002_product_layer.sql'),
+    'utf-8',
+  );
+  db.exec(migration002);
+
+  // channels.resource_path 컬럼 추가 (SQLite는 IF NOT EXISTS를 미지원 → pragma로 체크)
+  const channelCols = db
+    .pragma('table_info(channels)') as Array<{ name: string }>;
+  const hasResourcePath = channelCols.some((col) => col.name === 'resource_path');
+  if (!hasResourcePath) {
+    db.exec('ALTER TABLE channels ADD COLUMN resource_path TEXT;');
+  }
 }

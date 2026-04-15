@@ -1,0 +1,58 @@
+version: '3.9'
+
+services:
+  next-server:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.next
+    container_name: suno-next
+    ports:
+      - "3000:3000"
+    env_file: "../../.env"
+    environment:
+      - MUSIC_GEN_DB_PATH=/app/data/music-gen.db
+      - BETTER_AUTH_URL=http://localhost:3000
+    volumes:
+      - ../../data:/app/data
+      - ../../config/channels:/app/config/channels:ro
+      - ~/.claude:/host-claude:ro
+    restart: unless-stopped
+    depends_on:
+      - py-worker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  py-worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.worker
+    container_name: suno-worker
+    env_file: "../../.env"
+    environment:
+      - MUSIC_GEN_DB_PATH=/app/data/music-gen.db
+      - NEXT_SERVER_URL=http://next-server:3000
+    volumes:
+      - ../../data:/app/data
+      - ../../config/channels:/app/config/channels
+      - ~/.claude:/host-claude:ro
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: suno-tunnel
+    command: tunnel --no-autoupdate run
+    env_file: "../../.env"
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - next-server
+    profiles:
+      - tunnel
+
+volumes:
+  data:
+    driver: local

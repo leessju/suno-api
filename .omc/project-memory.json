@@ -1,0 +1,192 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776262219640,
+  "projectRoot": "/Users/nicejames/Projects/clones/zach-suno-api/.claude/worktrees/site",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "next",
+        "version": "14.1.4",
+        "category": "fullstack"
+      },
+      {
+        "name": "react",
+        "version": "18",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18",
+        "category": "frontend"
+      }
+    ],
+    "packageManager": "pnpm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "pnpm build",
+    "testCommand": null,
+    "lintCommand": "pnpm lint",
+    "devCommand": "pnpm dev",
+    "scripts": {
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": "ES modules",
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "public",
+      "scripts",
+      "src"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "config": {
+      "path": "config",
+      "purpose": "Configuration files",
+      "fileCount": 0,
+      "lastAccessed": 1776262219614,
+      "keyFiles": []
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 3,
+      "lastAccessed": 1776262219614,
+      "keyFiles": [
+        "music-gen.db",
+        "music-gen.db-shm",
+        "music-gen.db-wal"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 7,
+      "lastAccessed": 1776262219617,
+      "keyFiles": [
+        "auth-requests-reference.md",
+        "clerk-auth-architecture.md",
+        "lucid-white-lyrics-test-01.md",
+        "lucid-white-lyrics-test-02.md",
+        "lucid-white-system-prompt.md"
+      ]
+    },
+    "infra": {
+      "path": "infra",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776262219617,
+      "keyFiles": []
+    },
+    "public": {
+      "path": "public",
+      "purpose": "Public files",
+      "fileCount": 9,
+      "lastAccessed": 1776262219618,
+      "keyFiles": [
+        "drag-instructions.jpg",
+        "get-cookie-demo.gif",
+        "get-cookie-demo.mp4",
+        "github-logo.webp",
+        "github-mark.png"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 9,
+      "lastAccessed": 1776262219618,
+      "keyFiles": [
+        "auto_refresh_cookie.py",
+        "generate_playlist.py",
+        "google_auth.py",
+        "google_auth.ts",
+        "midi_cover.py"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1776262219618,
+      "keyFiles": [
+        "middleware.ts"
+      ]
+    },
+    "workers": {
+      "path": "workers",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776262219619,
+      "keyFiles": []
+    },
+    "src/app": {
+      "path": "src/app",
+      "purpose": "Application code",
+      "fileCount": 4,
+      "lastAccessed": 1776262219621,
+      "keyFiles": [
+        "favicon.ico",
+        "globals.css",
+        "layout.tsx"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 1,
+      "lastAccessed": 1776262219621,
+      "keyFiles": [
+        "ChannelSelector.tsx"
+      ]
+    },
+    "src/lib": {
+      "path": "src/lib",
+      "purpose": "Library code",
+      "fileCount": 6,
+      "lastAccessed": 1776262219621,
+      "keyFiles": [
+        "SunoApi.ts",
+        "auth-client.ts",
+        "auth.ts"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

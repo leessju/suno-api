@@ -1,0 +1,26 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# 시스템 의존성
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsndfile1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 의존성
+COPY workers/python/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 소스 복사
+COPY workers/python ./workers/python
+COPY scripts/midi_cover.py ./scripts/midi_cover.py
+COPY scripts/generate_playlist.py ./scripts/generate_playlist.py
+
+RUN mkdir -p /app/data /app/config/channels
+
+ENV PYTHONUNBUFFERED=1
+ENV MUSIC_GEN_DB_PATH=/app/data/music-gen.db
+
+CMD ["python", "-u", "workers/python/daemon.py"]

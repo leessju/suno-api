@@ -40,3 +40,9 @@ next-env.d.ts
 Dockerfile
 docker-compose.yml
 README*.md
+
+# data
+data/*.db
+
+# infra (빌드 컨텍스트에서 제외 불필요하지만 명시)
+infra/docker/.env*

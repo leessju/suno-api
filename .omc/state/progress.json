@@ -1,0 +1,35 @@
+{
+  "project_type": "greenfield",
+  "worktree": "/Users/nicejames/Projects/clones/zach-suno-api/.claude/worktrees/site",
+  "build_status": "passing",
+  "sections": [
+    {"id": "P0-1", "status": "done", "desc": "DB Migration 002 + db.ts lazy init"},
+    {"id": "P0-2", "status": "done", "desc": "better-auth + login page + studio layout"},
+    {"id": "P0-3", "status": "done", "desc": "SqliteQueue + idempotency"},
+    {"id": "P0-4", "status": "done", "desc": "Contract Zod schemas (job/workspace/track)"},
+    {"id": "P0-5", "status": "done", "desc": "Docker Compose infra (next/worker/cloudflared)"},
+    {"id": "P0-6", "status": "done", "desc": "(studio) layout + dashboard stub"},
+    {"id": "P1-1", "status": "done", "desc": "ChannelSelector + new workspace page + workspace/jobs API"},
+    {"id": "P1-2", "status": "done", "desc": "config/channels/ folder structure"},
+    {"id": "P1-3", "status": "done", "desc": "Python daemon + dispatcher"},
+    {"id": "P1-4", "status": "done", "desc": "MIDI convert stage (midi_cover.py wrapper)"},
+    {"id": "P2-1", "status": "done", "desc": "Gemini variants (generator.ts 재사용)"},
+    {"id": "P2-2", "status": "done", "desc": "Suno multi-account + credit bridge"},
+    {"id": "P2-3", "status": "done", "desc": "SSE stream + Step/Auto mode"},
+    {"id": "P2-4", "status": "done", "desc": "Variants selection UI"},
+    {"id": "P3-1", "status": "done", "desc": "Claude Agent SDK 결재 (4 persona)"},
+    {"id": "P3-2", "status": "done", "desc": "Remotion 렌더 통합 + preflight check"},
+    {"id": "P3-3", "status": "done", "desc": "YouTube 업로드"},
+    {"id": "P3-4", "status": "done", "desc": "Telegram Bot"},
+    {"id": "P4-1", "status": "done", "desc": "10화면 UI 완성"},
+    {"id": "P4-2", "status": "done", "desc": "OpenClaw 자동 루프"},
+    {"id": "P4-3", "status": "pending", "desc": "LLM 비용 트래킹 UI (gem_llm_usage 기반)"}
+  ],
+  "next": {
+    "id": "final-verification",
+    "action": "verify.sh + smoke tests + git commit",
+    "then": "P4-3 LLM cost UI (optional)"
+  },
+  "servers": {"web": "localhost:3000"},
+  "last_test_result": "build pass (pnpm build)"
+}
