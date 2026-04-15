@@ -38,6 +38,20 @@ export function findById(id: string): Session | undefined {
   return db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as Session | undefined;
 }
 
+export function listByChannel(channelId: number, limit = 50): Session[] {
+  const db = getDb();
+  return db.prepare(
+    'SELECT * FROM sessions WHERE channel_id = ? ORDER BY created_at DESC LIMIT ?'
+  ).all(channelId, limit) as Session[];
+}
+
+export function listAll(limit = 100): Session[] {
+  const db = getDb();
+  return db.prepare(
+    'SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?'
+  ).all(limit) as Session[];
+}
+
 export interface UpdateSummaryInput {
   sessionId: string;
   newSummary: string;

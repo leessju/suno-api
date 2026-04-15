@@ -14,6 +14,25 @@ export async function OPTIONS() {
   return options();
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const channelId = searchParams.get('channel_id');
+
+    if (channelId) {
+      const id = parseInt(channelId, 10);
+      if (isNaN(id)) return err('INVALID_INPUT', 'channel_id must be a number', 400);
+      const sessions = sessionsRepo.listByChannel(id);
+      return ok(sessions);
+    }
+
+    const sessions = sessionsRepo.listAll();
+    return ok(sessions);
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

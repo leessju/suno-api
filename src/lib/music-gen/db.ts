@@ -46,6 +46,13 @@ function runMigrations(db: Database.Database): void {
   );
   db.exec(migration004);
 
+  // 005: gem_global_settings
+  const migration005 = fs.readFileSync(
+    path.join(base, 'migrations/005_global_settings.sql'),
+    'utf-8',
+  );
+  db.exec(migration005);
+
   // channels.resource_path 컬럼 추가 (SQLite는 IF NOT EXISTS를 미지원 → pragma로 체크)
   const channelCols = db
     .pragma('table_info(channels)') as Array<{ name: string }>;

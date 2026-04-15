@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-15T23:13:54.596Z",
+  "updatedAt": "2026-04-15T23:42:33.414Z",
   "missions": [
     {
       "id": "session:8b0049f6-23f0-4740-99bd-ff9f770dd3b3:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-04-15T13:45:14.390Z",
-      "updatedAt": "2026-04-15T23:13:54.596Z",
+      "updatedAt": "2026-04-15T23:42:33.414Z",
       "status": "done",
-      "workerCount": 21,
+      "workerCount": 22,
       "taskCounts": {
-        "total": 21,
+        "total": 22,
         "pending": 0,
         "blocked": 0,
         "inProgress": 0,
-        "completed": 21,
+        "completed": 22,
         "failed": 0
       },
       "agents": [
@@ -27,7 +27,7 @@
           "currentStep": null,
           "latestUpdate": "completed",
           "completedSummary": null,
-          "updatedAt": "2026-04-15T23:13:54.596Z"
+          "updatedAt": "2026-04-15T23:42:33.414Z"
         },
         {
           "name": "executor:ad305cf",
@@ -228,48 +228,58 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-04-15T23:10:49.337Z"
+        },
+        {
+          "name": "executor:ad59c80",
+          "role": "executor",
+          "ownership": "ad59c8098f86726b8",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-04-15T23:39:27.784Z"
         }
       ],
       "timeline": [
         {
-          "id": "session-stop:a2c1d960a994f9e1a:2026-04-15T16:26:12.522Z",
-          "at": "2026-04-15T16:26:12.522Z",
+          "id": "session-stop:a82d7ff933a605eb7:2026-04-15T23:23:55.538Z",
+          "at": "2026-04-15T23:23:55.538Z",
           "kind": "completion",
           "agent": "executor:a02408a",
           "detail": "completed",
-          "sourceKey": "session-stop:a2c1d960a994f9e1a"
+          "sourceKey": "session-stop:a82d7ff933a605eb7"
         },
         {
-          "id": "session-stop:a7e264cb4f134a1be:2026-04-15T16:30:48.354Z",
-          "at": "2026-04-15T16:30:48.354Z",
+          "id": "session-stop:a389ab4cb1a963987:2026-04-15T23:28:06.529Z",
+          "at": "2026-04-15T23:28:06.529Z",
           "kind": "completion",
           "agent": "executor:a02408a",
           "detail": "completed",
-          "sourceKey": "session-stop:a7e264cb4f134a1be"
+          "sourceKey": "session-stop:a389ab4cb1a963987"
         },
         {
-          "id": "session-start:ad05dc79574b1fc73:2026-04-15T23:08:30.341Z",
-          "at": "2026-04-15T23:08:30.341Z",
+          "id": "session-start:ad59c8098f86726b8:2026-04-15T23:33:41.288Z",
+          "at": "2026-04-15T23:33:41.288Z",
           "kind": "update",
-          "agent": "executor:ad05dc7",
-          "detail": "started executor:ad05dc7",
-          "sourceKey": "session-start:ad05dc79574b1fc73"
+          "agent": "executor:ad59c80",
+          "detail": "started executor:ad59c80",
+          "sourceKey": "session-start:ad59c8098f86726b8"
         },
         {
-          "id": "session-stop:ad05dc79574b1fc73:2026-04-15T23:10:49.337Z",
-          "at": "2026-04-15T23:10:49.337Z",
+          "id": "session-stop:ad59c8098f86726b8:2026-04-15T23:39:27.784Z",
+          "at": "2026-04-15T23:39:27.784Z",
           "kind": "completion",
-          "agent": "executor:ad05dc7",
+          "agent": "executor:ad59c80",
           "detail": "completed",
-          "sourceKey": "session-stop:ad05dc79574b1fc73"
+          "sourceKey": "session-stop:ad59c8098f86726b8"
         },
         {
-          "id": "session-stop:abb3b47ed7f502bfa:2026-04-15T23:13:54.596Z",
-          "at": "2026-04-15T23:13:54.596Z",
+          "id": "session-stop:a86df27cf918f239a:2026-04-15T23:42:33.414Z",
+          "at": "2026-04-15T23:42:33.414Z",
           "kind": "completion",
           "agent": "executor:a02408a",
           "detail": "completed",
-          "sourceKey": "session-stop:abb3b47ed7f502bfa"
+          "sourceKey": "session-stop:a86df27cf918f239a"
         }
       ]
     }

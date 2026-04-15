@@ -195,16 +195,16 @@
       "type": "file"
     },
     {
-      "path": "",
-      "accessCount": 5,
-      "lastAccessed": 1776294514826,
-      "type": "directory"
+      "path": "src/lib/music-gen/db.ts",
+      "accessCount": 6,
+      "lastAccessed": 1776296063873,
+      "type": "file"
     },
     {
-      "path": "src/lib/music-gen/db.ts",
-      "accessCount": 4,
-      "lastAccessed": 1776269239251,
-      "type": "file"
+      "path": "",
+      "accessCount": 6,
+      "lastAccessed": 1776296527194,
+      "type": "directory"
     },
     {
       "path": "workers/python/stages/upload.py",
@@ -255,6 +255,42 @@
       "type": "file"
     },
     {
+      "path": "src/app/(studio)/settings/telegram/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1776296039968,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/repositories/sessions.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776296069257,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/sessions/route.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776296081791,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/channels/[id]/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1776296299260,
+      "type": "file"
+    },
+    {
+      "path": "src/app/(studio)/settings/page.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1776296327369,
+      "type": "file"
+    },
+    {
+      "path": ".env",
+      "accessCount": 2,
+      "lastAccessed": 1776296535385,
+      "type": "file"
+    },
+    {
       "path": "src/app/(studio)/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1776262599268,
@@ -300,12 +336,6 @@
       "path": "src/app/(studio)/tracks/page.tsx",
       "accessCount": 1,
       "lastAccessed": 1776262601122,
-      "type": "file"
-    },
-    {
-      "path": "src/app/(studio)/settings/telegram/page.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1776262601329,
       "type": "file"
     },
     {
@@ -391,6 +421,42 @@
       "accessCount": 1,
       "lastAccessed": 1776294585465,
       "type": "directory"
+    },
+    {
+      "path": "src/lib/music-gen/api-helpers.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776296036437,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/channels/[id]/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776296049055,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/migrations/005_global_settings.sql",
+      "accessCount": 1,
+      "lastAccessed": 1776296058180,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/music-gen/repositories/global-settings.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776296074028,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/settings/[key]/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776296097938,
+      "type": "file"
+    },
+    {
+      "path": "src/app/api/music-gen/settings/route.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776296099192,
+      "type": "file"
     }
   ],
   "userDirectives": []
