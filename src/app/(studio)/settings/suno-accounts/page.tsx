@@ -1,0 +1,171 @@
+'use client'
+
+import { useState } from 'react'
+import { useSunoAccount } from '@/components/SunoAccountProvider'
+
+export default function SunoAccountsSettingsPage() {
+  const { accounts, selectedAccount, setSelectedAccount, refresh } = useSunoAccount()
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [form, setForm] = useState({ label: '', cookie: '' })
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState('')
+  const [deleting, setDeleting] = useState<number | null>(null)
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setAdding(true)
+    setAddError('')
+    try {
+      const res = await fetch('/api/music-gen/suno-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: form.label, cookie: form.cookie }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error?.message ?? '추가 실패')
+      setShowAddForm(false)
+      setForm({ label: '', cookie: '' })
+      refresh()
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : '오류가 발생했습니다')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function handleToggleActive(id: number, currentActive: boolean) {
+    await fetch(`/api/music-gen/suno-accounts/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !currentActive }),
+    })
+    refresh()
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm('이 Suno 계정을 삭제하시겠습니까?')) return
+    setDeleting(id)
+    try {
+      const res = await fetch(`/api/music-gen/suno-accounts/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error?.message ?? '삭제 실패')
+      refresh()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className="w-full max-w-xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Suno 계정 관리</h1>
+          <p className="text-sm text-muted-foreground mt-1">Suno 쿠키를 붙여넣어 계정을 추가하세요.</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(v => !v)}
+          className="px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm rounded-lg transition-colors"
+        >
+          + 계정 추가
+        </button>
+      </div>
+
+      {/* 추가 폼 */}
+      {showAddForm && (
+        <div className="bg-background border border-border rounded-lg p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground mb-4">새 Suno 계정</h2>
+          <form onSubmit={handleAdd} className="space-y-4">
+            {addError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">{addError}</div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">라벨 (예: nicejames@gmail.com)</label>
+              <input
+                type="text"
+                value={form.label}
+                onChange={e => setForm(p => ({ ...p, label: e.target.value }))}
+                placeholder="계정 식별용 이름"
+                required
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Suno 쿠키</label>
+              <textarea
+                value={form.cookie}
+                onChange={e => setForm(p => ({ ...p, cookie: e.target.value }))}
+                placeholder="Suno 브라우저 쿠키를 붙여넣으세요..."
+                required
+                rows={4}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">크롬 DevTools → Application → Cookies → suno.com 에서 복사</p>
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" disabled={adding} className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-md transition-colors">
+                {adding ? '추가 중...' : '추가'}
+              </button>
+              <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-accent hover:bg-accent text-foreground text-sm rounded-md transition-colors">
+                취소
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 계정 목록 */}
+      <div className="space-y-2">
+        {accounts.length === 0 && (
+          <div className="bg-background border border-dashed border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
+            등록된 Suno 계정이 없습니다.
+          </div>
+        )}
+        {accounts.map(acct => (
+          <div
+            key={acct.id}
+            className={`bg-background border rounded-lg p-4 shadow-sm flex items-center gap-3 transition-colors ${
+              selectedAccount?.id === acct.id
+                ? 'border-foreground/40 dark:border-foreground/40'
+                : 'border-border'
+            }`}
+          >
+            <div
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${acct.is_active ? 'bg-green-400' : 'bg-background'}`}
+              title={acct.is_active ? '활성' : '비활성'}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{acct.label}</p>
+              {selectedAccount?.id === acct.id && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">현재 선택됨</p>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setSelectedAccount(acct)}
+                disabled={selectedAccount?.id === acct.id}
+                className="px-2.5 py-1 text-xs bg-accent hover:bg-accent disabled:opacity-40 text-muted-foreground rounded transition-colors"
+              >
+                선택
+              </button>
+              <button
+                onClick={() => handleToggleActive(acct.id, acct.is_active)}
+                className="px-2.5 py-1 text-xs bg-accent hover:bg-accent text-muted-foreground rounded transition-colors"
+              >
+                {acct.is_active ? '비활성' : '활성화'}
+              </button>
+              <button
+                onClick={() => handleDelete(acct.id)}
+                disabled={deleting === acct.id}
+                className="px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 dark:text-red-400 rounded transition-colors disabled:opacity-50"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
