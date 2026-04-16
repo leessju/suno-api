@@ -137,3 +137,9 @@ export function extractAccount(body?: Record<string, any>, url?: string): number
   }
   return undefined;
 }
+// shadcn/ui cn helper
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}

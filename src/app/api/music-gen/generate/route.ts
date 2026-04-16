@@ -11,6 +11,7 @@ const generateSchema = z.object({
   channel_id: z.number().int().positive(),
   emotion_input: z.string().optional(), // Gemini가 분석 데이터로 테마 자체 결정
   session_id: z.string().optional(),
+  style_weight: z.number().min(0).max(1).optional(), // 0.0=채널100%, 1.0=원곡100%
 });
 
 export async function OPTIONS() {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const parsed = generateSchema.safeParse(body);
     if (!parsed.success) return err('INVALID_INPUT', parsed.error.message, 400);
 
-    const { channel_id, emotion_input, session_id } = parsed.data;
+    const { channel_id, emotion_input, session_id, style_weight } = parsed.data;
 
     const channel = channelsRepo.findById(channel_id);
     if (!channel) return err('CHANNEL_NOT_FOUND', `Channel ${channel_id} not found`, 404);
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     contentsRepo.linkToChannel(content.id, channel_id);
 
-    return ok({ content, channel_id }, 201);
+    return ok({ content, channel_id, style_weight: style_weight ?? null }, 201);
   } catch (e) {
     return handleError(e);
   }

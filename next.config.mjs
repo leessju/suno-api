@@ -1,22 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
-  webpack: (config) => {
-    config.module.rules.push({
-      test: /\.(ttf|html)$/i,
-      type: 'asset/resource'
-    });
-    return config;
+  serverExternalPackages: [
+    'better-sqlite3',
+    'rebrowser-playwright-core',
+    'ghost-cursor-playwright',
+    'undici',
+  ],
+  turbopack: {
+    rules: {
+      '*.ttf': {
+        loaders: [],
+        as: '*.ttf',
+      },
+      '*.html': {
+        loaders: [],
+        as: '*.html',
+      },
+    },
   },
-  experimental: {
-    serverMinification: false, // the server minification unfortunately breaks the selector class names
-    serverComponentsExternalPackages: [
-      'better-sqlite3',
-      'rebrowser-playwright-core',
-      'ghost-cursor-playwright',
-      'undici',
-    ],
-  },
-};  
+};
 
 export default nextConfig;

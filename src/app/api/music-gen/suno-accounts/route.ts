@@ -1,38 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { ok, err, handleError } from '@/lib/music-gen/api-helpers'
 import { getDb } from '@/lib/music-gen/db'
-
-function maskCookie(c: string) {
-  return c.slice(0, 20) + '...[masked]'
-}
+import { requireUser } from '@/lib/auth/guards'
+import { CreateSunoAccountSchema } from '@/contracts/schemas/suno-account'
 
 export async function GET() {
-  const db = getDb()
-  const rows = db.prepare('SELECT id, label, is_active, created_at, updated_at FROM suno_accounts ORDER BY id').all()
-  return NextResponse.json({ accounts: rows })
+  try {
+    const { user, response } = await requireUser()
+    if (response) return response
+
+    const db = getDb()
+    const accounts = db.prepare(`
+      SELECT id, user_id, label, is_active, created_at
+      FROM suno_accounts
+      WHERE user_id = ? OR user_id IS NULL
+      ORDER BY is_active DESC, id ASC
+    `).all(user.id)
+
+    return ok(accounts)
+  } catch (e) {
+    return handleError(e)
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const { id, label, cookie } = await req.json()
-  if (!id || !cookie) return NextResponse.json({ error: 'id and cookie required' }, { status: 400 })
-  const now = Math.floor(Date.now() / 1000)
-  const db = getDb()
-  db.prepare(`
-    INSERT INTO suno_accounts (id, label, cookie, is_active, created_at, updated_at)
-    VALUES (?, ?, ?, 1, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      label = excluded.label,
-      cookie = excluded.cookie,
-      is_active = 1,
-      updated_at = excluded.updated_at
-  `).run(id, label || `Account ${id}`, cookie, now, now)
-  return NextResponse.json({ ok: true })
-}
+  try {
+    const { user, response } = await requireUser()
+    if (response) return response
 
-export async function DELETE(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get('id')
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
-  const now = Math.floor(Date.now() / 1000)
-  const db = getDb()
-  db.prepare('UPDATE suno_accounts SET is_active = 0, updated_at = ? WHERE id = ?').run(now, Number(id))
-  return NextResponse.json({ ok: true })
+    const body = await req.json()
+    const parsed = CreateSunoAccountSchema.safeParse(body)
+    if (!parsed.success) {
+      return err('VALIDATION_ERROR', parsed.error.message, 400)
+    }
+
+    const { label, cookie } = parsed.data
+    const db = getDb()
+
+    // 같은 유저의 동일 label 중복 방지
+    const existing = db.prepare(
+      'SELECT id FROM suno_accounts WHERE user_id = ? AND label = ?'
+    ).get(user.id, label)
+    if (existing) {
+      return err('DUPLICATE', '이미 같은 이름의 Suno 계정이 있습니다.', 409)
+    }
+
+    const now = Date.now()
+    const result = db.prepare(`
+      INSERT INTO suno_accounts (label, cookie, is_active, user_id, created_at)
+      VALUES (?, ?, 1, ?, ?)
+    `).run(label, cookie, user.id, now)
+
+    const account = db.prepare(
+      'SELECT id, user_id, label, is_active, created_at FROM suno_accounts WHERE id = ?'
+    ).get(result.lastInsertRowid)
+
+    return ok(account, 201)
+  } catch (e) {
+    return handleError(e)
+  }
 }

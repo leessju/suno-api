@@ -9,19 +9,24 @@ export const JobTypeSchema = z.enum([
   'upload.youtube',
   'approval.run',
   'telegram.send',
+  'shorts.create',
+  'shorts.upload',
 ])
 export type JobType = z.infer<typeof JobTypeSchema>
 
 export const MidiConvertPayloadSchema = z.object({
   workspace_id: z.string(),
+  workspace_midi_id: z.string(),
   source_audio_path: z.string(),
   soundfont: z.string().optional(),
 })
 
 export const VariantsGeneratePayloadSchema = z.object({
   workspace_id: z.string(),
+  workspace_midi_id: z.string(),
   midi_master_id: z.string(),
   channel_id: z.number(),
+  original_ratio: z.number().int().min(0).max(100),
 })
 
 export const SunoGeneratePayloadSchema = z.object({
@@ -43,4 +48,17 @@ export const UploadYoutubePayloadSchema = z.object({
   video_path: z.string(),
   thumbnail_path: z.string(),
   channel_id: z.number(),
+})
+
+export const ShortsCreatePayloadSchema = z.object({
+  workspace_id: z.string(),
+  suno_track_id: z.string(),
+})
+
+export const ShortsUploadPayloadSchema = z.object({
+  workspace_id: z.string(),
+  suno_track_id: z.string(),
+  title: z.string(),
+  description: z.string().optional(),
+  pinned_comment: z.string().optional(),
 })

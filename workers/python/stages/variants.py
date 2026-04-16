@@ -26,12 +26,20 @@ except ImportError:
     logger.warning("google-generativeai 미설치 — aiohttp REST fallback 사용")
 
 
-def _build_prompt(style: str, title: str, original_prompt: str, count: int) -> str:
+def _build_prompt(style: str, title: str, original_prompt: str, count: int, original_ratio: int = 50) -> str:
+    if original_ratio <= 30:
+        ratio_desc = f"스타일 위주 (원곡 영향 최소화, 비율 {original_ratio}/100): 레퍼런스의 특성을 최소화하고 채널 고유 스타일 전면 적용."
+    elif original_ratio <= 70:
+        ratio_desc = f"균형 (원곡:스타일 동등 반영, 비율 {original_ratio}/100): 원곡 감정·BPM을 균형 있게 반영하되 채널 스타일로 재해석."
+    else:
+        ratio_desc = f"원곡 밀착 (비율 {original_ratio}/100): 원곡 감정·구조를 최대한 보존하되 채널 장르 안에서 표현."
+
     lines = [
         "당신은 K-pop/음악 프로듀서입니다.",
         f"다음 정보를 바탕으로 Suno AI 음악 생성용 프롬프트 {count}개를 만들어주세요.",
         "",
         f"스타일: {style}",
+        f"원곡:스타일 비율 지침: {ratio_desc}",
     ]
     if title:
         lines.append(f"제목: {title}")
@@ -105,12 +113,13 @@ async def generate_variants(
     count: int,
     model_name: str,
     api_key: str,
+    original_ratio: int = 50,
 ) -> tuple[list[dict], int, int]:
     """
     Gemini로 count개의 변형 프롬프트를 생성합니다.
     반환: (variants_list, input_tokens, output_tokens)
     """
-    prompt = _build_prompt(style, title, original_prompt, count)
+    prompt = _build_prompt(style, title, original_prompt, count, original_ratio)
 
     if _HAS_GENAI:
         result = await _call_genai(prompt, model_name, api_key)
@@ -154,10 +163,12 @@ async def handle_variants_generate(payload: dict, db_path: str = './data/music-g
       count: int              — 생성할 변형 수 (기본 5)
     """
     workspace_id = payload["workspace_id"]
+    workspace_midi_id = payload.get("workspace_midi_id")
     style = payload.get("style", "pop")
     title = payload.get("title", "")
     original_prompt = payload.get("original_prompt", "")
     count = int(payload.get("count", 5))
+    original_ratio = int(payload.get("original_ratio", 50))
 
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("VERTEX_AI_API_KEY", "")
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
@@ -178,7 +189,7 @@ async def handle_variants_generate(payload: dict, db_path: str = './data/music-g
     )
 
     variants, input_tokens, output_tokens = await generate_variants(
-        style, title, original_prompt, count, model_name, api_key
+        style, title, original_prompt, count, model_name, api_key, original_ratio
     )
 
     pricing = GEMINI_PRICING.get(model_name, GEMINI_PRICING["gemini-2.0-flash"])
@@ -195,10 +206,10 @@ async def handle_variants_generate(payload: dict, db_path: str = './data/music-g
             conn.execute(
                 """
                 INSERT INTO workspace_tracks
-                    (workspace_id, suno_track_id, variant_id, suno_account_id)
-                VALUES (?, ?, ?, NULL)
+                    (workspace_id, suno_track_id, variant_id, suno_account_id, workspace_midi_id)
+                VALUES (?, ?, ?, NULL, ?)
                 """,
-                (workspace_id, v["variant_id"], v["variant_id"]),
+                (workspace_id, v["variant_id"], v["variant_id"], workspace_midi_id),
             )
 
         # LLM 사용량 기록

@@ -59,13 +59,12 @@ export async function GET(
     const { id } = await params
     const db = getDb()
 
-    // contents 테이블에서 이 워크스페이스와 연결된 channel의 content 조회
+    // workspace_tracks를 통해 이 워크스페이스에 속한 트랙의 variant만 조회
     const rows = db.prepare(`
-      SELECT c.* FROM contents c
-      JOIN content_channels cc ON cc.content_id = c.id
-      WHERE cc.channel_ref_id = (
-        SELECT channel_id FROM workspaces WHERE id = ?
-      )
+      SELECT c.*, wt.suno_track_id, wt.is_checked, wt.checked_at
+      FROM contents c
+      JOIN workspace_tracks wt ON wt.variant_id = c.id
+      WHERE wt.workspace_id = ?
       ORDER BY c.created_at DESC
       LIMIT 20
     `).all(id)

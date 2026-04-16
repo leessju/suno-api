@@ -6,10 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const key = params.path.join('/');
+    const { path } = await params
+    const key = path.join('/');
     const r2Res = await downloadObject(key);
 
     if (r2Res.status === 404) {

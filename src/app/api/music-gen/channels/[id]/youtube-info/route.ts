@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest } from 'next/server';
 import * as channelsRepo from '@/lib/music-gen/repositories/channels';
 import { ok, err, handleError } from '@/lib/music-gen/api-helpers';

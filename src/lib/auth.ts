@@ -6,6 +6,7 @@ export const auth = betterAuth({
   database: getDb(),
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 1,
   },
   socialProviders: {
     google: {

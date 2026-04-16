@@ -29,12 +29,12 @@ export function ChannelSelector({ value, onChange }: Props) {
   }, [])
 
   if (loading) {
-    return <div className="h-10 bg-gray-800 rounded-lg animate-pulse" />
+    return <div className="h-10 bg-accent rounded-lg animate-pulse" />
   }
 
   if (channels.length === 0) {
     return (
-      <div className="p-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-yellow-400 text-sm">
+      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg text-amber-700 dark:text-amber-400 text-sm">
         등록된 채널이 없습니다. 먼저 채널을 생성하세요.
       </div>
     )
@@ -48,23 +48,23 @@ export function ChannelSelector({ value, onChange }: Props) {
           onClick={() => onChange(ch.id)}
           className={`p-3 rounded-lg border text-left transition-colors ${
             value === ch.id
-              ? 'border-blue-500 bg-blue-900/30 text-white'
-              : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600'
+              ? 'border-foreground bg-accent text-foreground'
+              : 'border-border bg-background/50 text-foreground hover:border-input '
           }`}
         >
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold">
+            <div className="w-8 h-8 rounded-full bg-background flex items-center justify-center text-xs font-bold text-foreground">
               {ch.channel_name[0]}
             </div>
             <div>
               <p className="font-medium text-sm">{ch.channel_name}</p>
               {ch.channel_handle && (
-                <p className="text-xs text-gray-500">{ch.channel_handle}</p>
+                <p className="text-xs text-muted-foreground">{ch.channel_handle}</p>
               )}
             </div>
             {value === ch.id && (
-              <div className="ml-auto w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <div className="ml-auto w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>

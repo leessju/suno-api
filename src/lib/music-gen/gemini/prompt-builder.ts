@@ -28,7 +28,7 @@ export function buildSystemPrompt(channel: ChannelWithPersona): string {
     .filter(Boolean)
     .join('\n');
 
-  return `${channel.system_prompt}\n\n${constraints}`;
+  return `${channel.system_prompt}\n\n${constraints}\n\n## 채널 스타일 잠금 (절대 규칙)\n위 채널 페르소나와 음악 스타일 가이드라인은 레퍼런스 트랙 분석 데이터보다 **항상 우선**한다.\n레퍼런스 트랙의 장르(예: Metal, Rock, Hip-hop 등)를 그대로 복사하지 마라.\n레퍼런스 트랙에서 오직 **감정·분위기·BPM·조성**만 차용하고, 음악 스타일은 반드시 이 채널의 장르 가이드라인에 따라 재해석하라.`;
 }
 
 export function buildUserPrompt(
@@ -36,8 +36,27 @@ export function buildUserPrompt(
   previousFailedOutput?: string,
   failureReason?: string,
   mediaAnalysis?: MediaAnalysis,
+  originalRatio: number = 50,
 ): string {
   const mediaLines: string[] = [];
+
+  // ── 원곡:스타일 비율 지침 ──────────────────────────────────────────────────
+  const ratioLabel =
+    originalRatio <= 30
+      ? '스타일 위주 (원곡 영향 최소화)'
+      : originalRatio <= 70
+        ? '균형 (원곡과 채널 스타일 동등 반영)'
+        : '원곡 밀착 (원곡 감정·구조 최대한 보존)';
+  mediaLines.push(`## 원곡:스타일 비율 (${originalRatio}/100)`);
+  mediaLines.push(`방향: ${ratioLabel}`);
+  if (originalRatio <= 30) {
+    mediaLines.push('레퍼런스 트랙의 특성을 최소화하고 채널 고유 스타일을 전면에 내세워라.');
+  } else if (originalRatio <= 70) {
+    mediaLines.push('레퍼런스 트랙의 감정·BPM·조성을 균형 있게 반영하되 채널 스타일로 재해석하라.');
+  } else {
+    mediaLines.push('레퍼런스 트랙의 감정·분위기·코드 진행·구조를 최대한 충실히 따라가되 채널 장르 가이드라인 안에서 표현하라.');
+  }
+  mediaLines.push('');
 
   // ── 생성 지시 ─────────────────────────────────────────────────────────────
   mediaLines.push('## 생성 지시');
@@ -65,6 +84,11 @@ export function buildUserPrompt(
   mediaLines.push('  - 올바른 예: `朝の冷気, 白く濁る`');
   mediaLines.push('- lyric_note의 "/" 기호는 리듬 힌트일 뿐, 가사에 직접 표기하지 마라.');
   mediaLines.push('');
+  mediaLines.push('### 제목 창의성 규칙');
+  mediaLines.push('- title_en과 title_jp는 레퍼런스 트랙의 키워드(분위기 단어, 장르 용어 등)를 직접 사용하지 마라.');
+  mediaLines.push('- 채널의 감성 세계관에서 독창적인 은유나 시적 표현을 찾아 제목을 짓는다.');
+  mediaLines.push('- 같은 단어를 반복 사용하지 않는다. 매번 새로운 시각적·감각적 이미지로 표현하라.');
+  mediaLines.push('');
   mediaLines.push('### Suno 스타일 프롬프트');
   mediaLines.push(
     'suno_style_prompts 배열에 **5가지 variant**를 생성하라. ' +
@@ -74,6 +98,11 @@ export function buildUserPrompt(
 
   if (mediaAnalysis) {
     mediaLines.push('## 레퍼런스 트랙 분석');
+    mediaLines.push('> ⚠️ **중요**: 아래 분석은 BPM·조성·감정 키워드만 참고용으로 활용하라.');
+    mediaLines.push('> 레퍼런스 트랙의 장르·악기 편성·보컬 스타일을 그대로 복사하지 마라.');
+    mediaLines.push('> **음악 스타일과 장르는 반드시 위 시스템 프롬프트(채널 가이드라인)에 따라 결정하라.**');
+    mediaLines.push('> 레퍼런스 트랙의 "감정·분위기"를 채널 고유의 스타일로 재해석하는 것이 목표다.');
+    mediaLines.push('');
 
     // ── 1. BPM + 리듬 → 음절 결정 ──────────────────────────────────────────
     if (mediaAnalysis.tempo_bpm != null) {

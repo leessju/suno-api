@@ -1,4 +1,6 @@
-import { getDb } from '@/lib/music-gen/db'
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface Track {
@@ -10,55 +12,96 @@ interface Track {
   channel_name: string | null
 }
 
-export const dynamic = 'force-dynamic'
+interface Workspace { id: string; name: string }
+interface Channel { id: number; channel_name: string; channel_handle: string | null }
 
-export default async function TracksPage() {
-  let tracks: Track[] = []
-  try {
-    const db = getDb()
-    tracks = db.prepare(`
-      SELECT wt.*, w.name as workspace_name, c.channel_name
-      FROM workspace_tracks wt
-      LEFT JOIN workspaces w ON w.id = wt.workspace_id
-      LEFT JOIN channels c ON c.id = w.channel_id
-      ORDER BY wt.checked_at DESC NULLS LAST
-      LIMIT 100
-    `).all() as Track[]
-  } catch { /* DB not ready */ }
+export default function TracksPage() {
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Filters
+  const [workspaceId, setWorkspaceId] = useState('')
+  const [channelId, setChannelId] = useState('')
+  const [checked, setChecked] = useState('') // '' | '1' | '0'
+  const [search, setSearch] = useState('')
+
+  // Load filter options
+  useEffect(() => {
+    fetch('/api/music-gen/workspaces').then(r => r.json()).then(d => setWorkspaces(d.data ?? []))
+    fetch('/api/music-gen/channels').then(r => r.json()).then(d => setChannels(d.data ?? []))
+  }, [])
+
+  // Load tracks with filters
+  useEffect(() => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (workspaceId) params.set('workspace_id', workspaceId)
+    if (channelId) params.set('channel_id', channelId)
+    if (checked !== '') params.set('is_checked', checked)
+    if (search) params.set('q', search)
+
+    fetch(`/api/music-gen/tracks?${params}`)
+      .then(r => r.json())
+      .then(d => setTracks(d.data ?? []))
+      .finally(() => setLoading(false))
+  }, [workspaceId, channelId, checked, search])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">트랙 목록</h1>
-        <span className="text-sm text-gray-500 dark:text-gray-400">총 {tracks.length}개</span>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">노래 트랙</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">총 {tracks.length}개</p>
+        </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm divide-y divide-gray-100 dark:divide-gray-800">
-        {tracks.map((t, i) => (
-          <div key={`${t.workspace_id}-${t.suno_track_id}-${i}`}
-               className="px-4 py-3 flex items-center gap-4">
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.is_checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{t.suno_track_id}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {t.workspace_name} · {t.channel_name}
-                {t.suno_account_id && ` · Account ${t.suno_account_id}`}
-              </p>
-            </div>
-            <Link
-              href={`/workspaces/${t.workspace_id}`}
-              className="text-xs text-brand hover:text-brand-hover flex-shrink-0 font-medium transition-colors"
-            >
-              워크스페이스 →
-            </Link>
-          </div>
-        ))}
-        {tracks.length === 0 && (
-          <div className="m-4 p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-400 dark:text-gray-500">
-            트랙이 없습니다
-          </div>
-        )}
+      {/* 필터 바 */}
+      <div className="flex flex-wrap gap-2">
+        <select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}
+          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground">
+          <option value="">전체 워크스페이스</option>
+          {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <select value={channelId} onChange={e => setChannelId(e.target.value)}
+          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground">
+          <option value="">전체 채널</option>
+          {channels.map(c => <option key={c.id} value={c.id}>{c.channel_handle ? `@${c.channel_handle}` : c.channel_name}</option>)}
+        </select>
+        <select value={checked} onChange={e => setChecked(e.target.value)}
+          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground">
+          <option value="">전체 상태</option>
+          <option value="1">확인됨</option>
+          <option value="0">미확인</option>
+        </select>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="트랙 ID 검색..."
+          className="h-8 px-3 text-sm rounded-md border border-border bg-background text-foreground flex-1 min-w-[160px]" />
       </div>
+
+      {/* 트랙 목록 */}
+      {loading ? (
+        <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-accent rounded-lg animate-pulse" />)}</div>
+      ) : tracks.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">트랙이 없습니다</div>
+      ) : (
+        <div className="bg-background border border-border rounded-lg divide-y divide-gray-100 dark:divide-gray-800">
+          {tracks.map((t, i) => (
+            <div key={`${t.workspace_id}-${t.suno_track_id}-${i}`} className="px-4 py-3 flex items-center gap-4">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${t.is_checked ? 'bg-green-500' : 'bg-background'}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{t.suno_track_id}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.workspace_name} · {t.channel_name}</p>
+              </div>
+              <Link href={`/workspaces/${t.workspace_id}`}
+                className="text-xs text-foreground hover:underline flex-shrink-0">
+                워크스페이스 →
+              </Link>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

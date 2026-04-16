@@ -25,7 +25,7 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       title={isDark ? '라이트 모드로 전환' : '다크 모드로 전환'}
-      className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-white hover:bg-gray-700 transition-colors text-base"
+      className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground dark:hover:text-primary-foreground hover:bg-accent dark:hover:bg-accent transition-colors text-base"
     >
       {isDark ? '☀' : '☾'}
     </button>
