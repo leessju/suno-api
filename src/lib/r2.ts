@@ -1,128 +1,104 @@
-const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const BUCKET = process.env.R2_BUCKET_NAME;
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 
-function getBaseUrl(): string {
-  if (!ACCOUNT_ID) throw new Error('CLOUDFLARE_ACCOUNT_ID is not set');
-  if (!API_TOKEN) throw new Error('CLOUDFLARE_API_TOKEN is not set');
-  if (!BUCKET) throw new Error('R2_BUCKET_NAME is not set');
-  return `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/r2/buckets/${BUCKET}/objects`;
+function getClient(): S3Client {
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const endpoint = process.env.R2_ENDPOINT;
+
+  if (!accessKeyId) throw new Error('R2_ACCESS_KEY_ID is not set');
+  if (!secretAccessKey) throw new Error('R2_SECRET_ACCESS_KEY is not set');
+  if (!endpoint) throw new Error('R2_ENDPOINT is not set');
+
+  return new S3Client({
+    region: 'auto',
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
 }
 
-function authHeaders(): Record<string, string> {
-  return {
-    Authorization: `Bearer ${API_TOKEN}`,
-  };
+function getBucket(): string {
+  const bucket = process.env.R2_BUCKET_NAME;
+  if (!bucket) throw new Error('R2_BUCKET_NAME is not set');
+  return bucket;
 }
 
-/**
- * Upload an object to R2.
- * body accepts Uint8Array (Buffer is a subclass), Blob, or string.
- */
 export async function uploadObject(
   key: string,
   body: Uint8Array | Blob | string,
   contentType: string
 ): Promise<{ key: string; etag: string; size: string }> {
-  const base = getBaseUrl();
-  const url = `${base}/${encodeURIComponent(key)}`;
+  const client = getClient();
+  const bucket = getBucket();
 
-  let byteSize: number;
+  let bodyBytes: Uint8Array;
   if (typeof body === 'string') {
-    byteSize = new TextEncoder().encode(body).byteLength;
+    bodyBytes = new TextEncoder().encode(body);
   } else if (body instanceof Blob) {
-    byteSize = body.size;
+    bodyBytes = new Uint8Array(await body.arrayBuffer());
   } else {
-    byteSize = body.byteLength;
+    bodyBytes = body;
   }
 
-  // Convert Uint8Array to ArrayBuffer for BodyInit compatibility
-  // Use a plain ArrayBuffer copy to avoid SharedArrayBuffer type issues
-  let fetchBody: BodyInit;
-  if (body instanceof Uint8Array) {
-    const ab = new ArrayBuffer(body.byteLength);
-    new Uint8Array(ab).set(body);
-    fetchBody = ab;
-  } else {
-    fetchBody = body;
-  }
+  const res = await client.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: bodyBytes,
+    ContentType: contentType,
+  }));
 
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      ...authHeaders(),
-      'Content-Type': contentType,
-    },
-    body: fetchBody,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`R2 upload failed [${res.status}]: ${text}`);
-  }
-
-  const etag = res.headers.get('etag') ?? '';
-  const size = res.headers.get('content-length') ?? String(byteSize);
-
-  return { key, etag, size };
+  return { key, etag: res.ETag ?? '', size: String(bodyBytes.byteLength) };
 }
 
 export async function downloadObject(key: string): Promise<Response> {
-  const base = getBaseUrl();
-  const url = `${base}/${encodeURIComponent(key)}`;
+  const client = getClient();
+  const bucket = getBucket();
 
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: authHeaders(),
-  });
-
-  if (!res.ok && res.status !== 404) {
-    const text = await res.text();
-    throw new Error(`R2 download failed [${res.status}]: ${text}`);
+  try {
+    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const stream = res.Body as ReadableStream;
+    return new Response(stream, {
+      headers: {
+        'Content-Type': res.ContentType ?? 'application/octet-stream',
+        'Content-Length': String(res.ContentLength ?? ''),
+      },
+    });
+  } catch (err: unknown) {
+    const code = (err as { name?: string })?.name;
+    if (code === 'NoSuchKey') {
+      return new Response(null, { status: 404 });
+    }
+    throw err;
   }
-
-  return res;
 }
 
 export async function deleteObject(key: string): Promise<void> {
-  const base = getBaseUrl();
-  const url = `${base}/${encodeURIComponent(key)}`;
-
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`R2 delete failed [${res.status}]: ${text}`);
-  }
+  const client = getClient();
+  const bucket = getBucket();
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 export async function listObjects(
   prefix?: string
 ): Promise<Array<{ key: string; size: number; uploaded: string }>> {
-  const base = getBaseUrl();
-  const url = new URL(`${base}/`);
-  if (prefix) url.searchParams.set('prefix', prefix);
+  const client = getClient();
+  const bucket = getBucket();
 
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: authHeaders(),
-  });
+  const res = await client.send(new ListObjectsV2Command({
+    Bucket: bucket,
+    Prefix: prefix,
+  }));
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`R2 list failed [${res.status}]: ${text}`);
-  }
-
-  const json = (await res.json()) as {
-    result?: {
-      objects?: Array<{ key: string; size: number; uploaded: string }>;
-    };
-  };
-
-  return json.result?.objects ?? [];
+  return (res.Contents ?? []).map(obj => ({
+    key: obj.Key ?? '',
+    size: obj.Size ?? 0,
+    uploaded: obj.LastModified?.toISOString() ?? '',
+  }));
 }
 
 export function getObjectUrl(key: string): string {
