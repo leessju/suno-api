@@ -2,6 +2,16 @@
 
 import { useState } from 'react'
 import { useSunoAccount } from '@/components/SunoAccountProvider'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function SunoAccountsSettingsPage() {
   const { accounts, selectedAccount, setSelectedAccount, refresh } = useSunoAccount()
@@ -10,11 +20,14 @@ export default function SunoAccountsSettingsPage() {
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
   const [deleting, setDeleting] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
-    setAdding(true)
     setAddError('')
+    if (!form.label.trim()) { setAddError('라벨을 입력하세요'); return }
+    if (!form.cookie.trim()) { setAddError('Suno 쿠키를 입력하세요'); return }
+    setAdding(true)
     try {
       const res = await fetch('/api/music-gen/suno-accounts', {
         method: 'POST',
@@ -42,8 +55,14 @@ export default function SunoAccountsSettingsPage() {
     refresh()
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('이 Suno 계정을 삭제하시겠습니까?')) return
+  function handleDelete(id: number) {
+    setConfirmDeleteId(id)
+  }
+
+  async function confirmDelete() {
+    if (confirmDeleteId === null) return
+    const id = confirmDeleteId
+    setConfirmDeleteId(null)
     setDeleting(id)
     try {
       const res = await fetch(`/api/music-gen/suno-accounts/${id}`, { method: 'DELETE' })
@@ -58,6 +77,19 @@ export default function SunoAccountsSettingsPage() {
   }
 
   return (
+    <>
+    <AlertDialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null) }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Suno 계정 삭제</AlertDialogTitle>
+          <AlertDialogDescription>이 Suno 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>취소</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600 text-white">삭제</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     <div className="w-full max-w-xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -167,5 +199,6 @@ export default function SunoAccountsSettingsPage() {
         ))}
       </div>
     </div>
+    </>
   )
 }

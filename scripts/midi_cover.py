@@ -27,7 +27,7 @@ Usage:
 import argparse
 import json
 import os
-import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -42,7 +42,7 @@ DEFAULT_MODEL = "chirp-fenix"
 DEFAULT_SF2 = "/opt/homebrew/Cellar/fluid-synth/2.5.3/share/fluid-synth/sf2/VintageDreamsWaves-v2.sf2"
 CONDA_CHORD_ENV = "chord310"
 CONDA_DEMUCS_ENV = None  # system default
-NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+BTC_DIR = Path.home() / "Projects/clones/BTC-ISMIR19"
 
 
 # ─── Helpers ─────────────────────────────────────────────
@@ -97,7 +97,7 @@ def demucs_separate(mp3_path, output_dir):
     """Demucs로 보컬 제거, no-vocal mix 반환."""
     print("\n[Step 1] Demucs 보컬 분리")
     demucs_out = os.path.join(output_dir, "demucs")
-    run(f'demucs -n htdemucs -o "{demucs_out}" "{mp3_path}"')
+    run(f'demucs -n htdemucs --device mps -o "{demucs_out}" "{mp3_path}"')
 
     # Find stem directory
     stem_dir = None
@@ -126,166 +126,52 @@ def demucs_separate(mp3_path, output_dir):
     return nv_path
 
 
-# ─── Step 2: Chordino 코드 추출 + Key 필터 ──────────────
+# ─── Step 2: BTC Transformer 코드 추출 ──────────────────
 
 def extract_chords(audio_path, output_dir):
-    """Chordino로 코드 추출 → Key 필터 → JSON 저장."""
-    print("\n[Step 2] Chordino 코드 추출 + Key 필터")
+    """BTC Transformer로 코드 추출 → MIDI 생성."""
+    print("\n[Step 2] BTC Transformer 코드 추출")
 
-    chords_json = os.path.join(output_dir, "chords.json")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        # BTC는 디렉토리 단위로 처리하므로 오디오 파일을 임시 디렉토리에 복사
+        audio_name = Path(audio_path).name
+        shutil.copy2(audio_path, os.path.join(tmp_dir, audio_name))
 
-    code = '''
-import re, json, sys
-sys.path.insert(0, ".")
-from chord_extractor.extractors import Chordino
+        # BTC_DIR 기준으로 실행 (상대 경로 모델 파일 참조)
+        result = subprocess.run(
+            ['conda', 'run', '-n', CONDA_CHORD_ENV, 'python3', 'test.py',
+             '--audio_dir', tmp_dir,
+             '--save_dir', tmp_dir],
+            cwd=str(BTC_DIR),
+            capture_output=True,
+            text=True,
+            timeout=600
+        )
 
-NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+        # 생성된 MIDI 파일 탐색
+        midi_files = list(Path(tmp_dir).glob('*.midi'))
+        if not midi_files:
+            print(f"  ERROR: BTC MIDI 생성 실패\n  stderr: {result.stderr[:500]}")
+            sys.exit(1)
 
-def simplify(chord):
-    if chord == "N": return "N"
-    chord = chord.split("/")[0]
-    m = re.match(r"^([A-G][#b]?)(m?).*$", chord)
-    if not m: return "N"
-    root, q = m.group(1), "m" if m.group(2) == "m" else ""
-    enh = {"Db":"C#","Eb":"D#","Gb":"F#","Ab":"G#","Bb":"A#"}
-    result = root + q
-    for k, v in enh.items():
-        if result.startswith(k): result = result.replace(k, v, 1)
-    return result
+        # output_dir로 복사
+        midi_dst = os.path.join(output_dir, 'chords.mid')
+        shutil.copy2(str(midi_files[0]), midi_dst)
 
-def get_diatonic(key_note, is_minor=False):
-    idx = NOTE_NAMES.index(key_note)
-    intervals = [0,2,3,5,7,8,10] if is_minor else [0,2,4,5,7,9,11]
-    scale = [NOTE_NAMES[(idx+i)%12] for i in intervals]
-    qualities = ["m","","","m","m","",""] if is_minor else ["","m","m","","","m",""]
-    return set(scale[i]+qualities[i] for i in range(7))
-
-def remerge(data):
-    result = []
-    for t,c,d in data:
-        if result and result[-1][1] == c:
-            result[-1] = (result[-1][0], result[-1][1], result[-1][2]+d)
-        else: result.append((t,c,d))
-    return result
-
-# Extract
-chords = Chordino(roll_on=0.5).extract("AUDIO_PATH")
-merged = []
-for ch in chords:
-    s = simplify(ch.chord)
-    if s == "N": continue
-    if merged and merged[-1][1] == s: continue
-    if merged: merged[-1] = (merged[-1][0], merged[-1][1], ch.timestamp - merged[-1][0])
-    merged.append((ch.timestamp, s, 0))
-if merged: merged[-1] = (merged[-1][0], merged[-1][1], chords[-1].timestamp - merged[-1][0])
-
-# Find best key (self-consistency: most chords retained)
-best_key, best_score, best_chords = "", 0, []
-for ki in range(12):
-    kn = NOTE_NAMES[ki]
-    for is_minor in [False, True]:
-        allowed = get_diatonic(kn, is_minor)
-        filtered = remerge([(t,c,d) for t,c,d in merged if c in allowed])
-        total_dur = sum(d for _,_,d in filtered)
-        if total_dur > best_score:
-            best_score = total_dur
-            mode = "m" if is_minor else ""
-            best_key = kn + mode
-            best_chords = filtered
-
-result = {
-    "key": best_key,
-    "total_chords": len(best_chords),
-    "chords": [{"time": t, "chord": c, "duration": d} for t,c,d in best_chords]
-}
-with open("OUTPUT_PATH", "w") as f:
-    json.dump(result, f, indent=2)
-print(f"Key: {best_key}, Chords: {len(best_chords)}")
-'''.replace("AUDIO_PATH", audio_path).replace("OUTPUT_PATH", chords_json)
-
-    # Write temp script
-    script_path = os.path.join(output_dir, "_extract_chords.py")
-    with open(script_path, "w") as f:
-        f.write(code)
-
-    run(f'conda run -n {CONDA_CHORD_ENV} python3 "{script_path}"')
-    os.remove(script_path)
-
-    with open(chords_json) as f:
-        data = json.load(f)
-    print(f"  → Key: {data['key']}, {data['total_chords']} chords")
-    return data
+    print(f"  → MIDI 생성 완료: {midi_dst}")
+    return {"midi_path": midi_dst, "key": "", "total_chords": 0}
 
 
-# ─── Step 3: 코드 → MIDI → mp3 ─────────────────────────
+# ─── Step 3: MIDI → mp3 렌더링 ─────────────────────────
 
 def chords_to_midi(chords_data, output_dir, soundfont):
-    """코드 JSON → MIDI → mp3 렌더링."""
-    print("\n[Step 3] 코드 → MIDI → mp3")
+    """BTC MIDI → mp3 렌더링 (MIDI는 이미 extract_chords에서 생성됨)."""
+    print("\n[Step 3] MIDI → mp3 렌더링")
 
-    midi_path = os.path.join(output_dir, "chords.mid")
+    midi_path = chords_data["midi_path"]
     mp3_path = os.path.join(output_dir, "chords.mp3")
-
-    code = f'''
-import json, mido
-from mido import MidiFile, MidiTrack, Message
-
-NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
-
-with open("{os.path.join(output_dir, 'chords.json')}") as f:
-    data = json.load(f)
-
-# BPM from chord durations
-chords = data["chords"]
-if len(chords) > 1:
-    avg_dur = sum(c["duration"] for c in chords) / len(chords)
-    bpm = max(40, min(200, 60 / avg_dur * 4))
-else:
-    bpm = 120
-
-mid = MidiFile(ticks_per_beat=480)
-track = MidiTrack()
-mid.tracks.append(track)
-track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(bpm)))
-
-for i, ch in enumerate(chords):
-    chord_name = ch["chord"]
-    root_name = chord_name.replace("m", "")
-    is_minor = chord_name.endswith("m") and not chord_name.endswith("#")
-    if chord_name.endswith("#m"):
-        root_name = chord_name[:-1]  # e.g. "C#m" -> "C#"
-        is_minor = True
-    elif chord_name.endswith("m"):
-        root_name = chord_name[:-1]
-        is_minor = True
-
-    root_idx = NOTE_NAMES.index(root_name) if root_name in NOTE_NAMES else 0
-    if is_minor:
-        notes = [root_idx + 60, root_idx + 63, root_idx + 67]
-    else:
-        notes = [root_idx + 60, root_idx + 64, root_idx + 67]
-
-    dur_ticks = int(ch["duration"] / (60 / bpm) * 480)
-    dur_ticks = max(dur_ticks, 240)
-
-    for j, n in enumerate(notes):
-        track.append(Message("note_on", note=n, velocity=80, time=0))
-    for j, n in enumerate(notes):
-        track.append(Message("note_off", note=n, velocity=0, time=dur_ticks if j == 0 else 0))
-
-mid.save("{midi_path}")
-print(f"BPM: {{bpm:.0f}}, MIDI saved")
-'''
-
-    script_path = os.path.join(output_dir, "_chords_to_midi.py")
-    with open(script_path, "w") as f:
-        f.write(code)
-
-    run(f'conda run -n {CONDA_CHORD_ENV} python3 "{script_path}"')
-    os.remove(script_path)
-
-    # Render MIDI → mp3
     wav_path = os.path.join(output_dir, "chords.wav")
+
     run(f'fluidsynth -ni -F "{wav_path}" -O s16 -T wav "{soundfont}" "{midi_path}"')
     run(f'ffmpeg -y -i "{wav_path}" -b:a 192k "{mp3_path}"')
     os.remove(wav_path)
@@ -452,16 +338,15 @@ def main():
     # Summary
     print("\n" + "=" * 50)
     print("완료!")
-    print(f"  Key: {chords_data['key']}")
-    print(f"  Chords: {chords_data['total_chords']}개")
+    print(f"  Key: {chords_data.get('key', 'N/A')}")
+    print(f"  MIDI: {chords_data.get('midi_path', 'N/A')}")
     print(f"  Songs: {song_ids}")
     print(f"  Output: {output_dir}/")
 
     # Save metadata
     meta = {
         "source": args.source,
-        "key": chords_data["key"],
-        "chords": chords_data["total_chords"],
+        "midi_path": chords_data.get("midi_path", ""),
         "clip_id": clip_id,
         "song_ids": song_ids,
         "style": args.style,

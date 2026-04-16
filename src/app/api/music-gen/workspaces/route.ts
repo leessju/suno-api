@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const channel_id = searchParams.get('channel_id')
 
     const db = getDb()
-    const conditions: string[] = ['(w.user_id = ? OR w.user_id IS NULL)']
+    const conditions: string[] = ['w.user_id = ?']
     const params: unknown[] = [user.id]
 
     if (suno_account_id) {
@@ -70,8 +70,8 @@ export async function POST(req: NextRequest) {
     }
 
     db.prepare(`
-      INSERT INTO workspaces (id, name, channel_id, suno_account_id, user_id, pipeline_mode, status, suno_sync_status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'draft', 'local_only', ?, ?)
+      INSERT INTO workspaces (id, name, source_type, channel_id, suno_account_id, user_id, pipeline_mode, status, suno_sync_status, created_at, updated_at)
+      VALUES (?, ?, 'youtube_video', ?, ?, ?, ?, 'draft', 'local_only', ?, ?)
     `).run(id, name, channel_id ?? null, validSunoAccountId, user.id, pipeline_mode ?? 'step', now, now)
 
     // Suno API 싱크 시도 (계정이 있을 때만, 실패해도 로컬 저장은 성공)

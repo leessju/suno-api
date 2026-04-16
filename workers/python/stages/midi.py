@@ -15,11 +15,16 @@ midi_cover.py의 출력 규약(output_dir에 chords.mid, chords.mp3 생성)을 �
 """
 
 import asyncio
+import json
 import logging
 import sqlite3
 import time
 import uuid
 from pathlib import Path
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from r2_utils import upload_file, r2_available
 
 logger = logging.getLogger('stages.midi')
 
@@ -30,6 +35,7 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
     """
     payload:
       workspace_id: str
+      workspace_midi_id: str  # workspace_midis 테이블 ID
       source_audio_path: str  # mp3 또는 wav 경로 (또는 YouTube URL)
       soundfont: str | None
       style: str | None       # Suno 스타일 태그 (미사용, 메타데이터용)
@@ -37,11 +43,30 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
       skip_demucs: bool       # 기본 False
     """
     workspace_id = payload['workspace_id']
+    workspace_midi_id = payload.get('workspace_midi_id')
     source_audio_path = payload['source_audio_path']
     soundfont = payload.get('soundfont')
     skip_demucs = payload.get('skip_demucs', False)
 
-    logger.info(f"MIDI 변환 시작: workspace={workspace_id}, source={source_audio_path}")
+    # 상대 경로는 프로젝트 루트 기준 절대 경로로 변환
+    is_youtube = source_audio_path.startswith('http')
+    if not is_youtube and not Path(source_audio_path).is_absolute():
+        source_audio_path = str(ROOT / source_audio_path)
+
+    logger.info(f"MIDI 변환 시작: workspace={workspace_id}, midi_id={workspace_midi_id}, source={source_audio_path}")
+
+    # workspace_midis 상태 설정
+    initial_status = 'converting'
+    if workspace_midi_id:
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                f"UPDATE workspace_midis SET status = '{initial_status}', updated_at = ? WHERE id = ?",
+                (int(time.time() * 1000), workspace_midi_id)
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
     midi_cover_script = ROOT / 'scripts' / 'midi_cover.py'
     output_dir = ROOT / 'data' / 'midi' / workspace_id
@@ -77,10 +102,10 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
     )
 
     try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=900)
     except asyncio.TimeoutError:
         proc.kill()
-        raise RuntimeError("midi_cover.py 타임아웃 (180s)")
+        raise RuntimeError("midi_cover.py 타임아웃 (900s)")
 
     # MIDI 파일 존재 여부로 성공 판단 (Step 4에서 Suno 오류가 나도 무시)
     midi_files = list(output_dir.glob('*.mid'))
@@ -97,6 +122,58 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
 
     logger.info(f"MIDI 변환 완료: {midi_path}")
 
+    # R2 업로드 (환경 변수가 설정된 경우)
+    midi_r2_key = midi_path  # 기본값: 로컬 경로
+    mp3_r2_key = mp3_path
+    source_audio_r2_key = None
+
+    if r2_available():
+        midi_id = workspace_midi_id or str(uuid.uuid4())
+        try:
+            midi_r2_key = upload_file(
+                midi_path,
+                f'audio/{workspace_id}/{midi_id}/original.mid',
+                'audio/midi',
+            )
+            logger.info(f"MIDI R2 업로드 완료: {midi_r2_key}")
+        except Exception as e:
+            logger.warning(f"MIDI R2 업로드 실패 (로컬 경로 사용): {e}")
+
+        if mp3_path:
+            try:
+                mp3_r2_key = upload_file(
+                    mp3_path,
+                    f'audio/{workspace_id}/{midi_id}/chords.mp3',
+                    'audio/mpeg',
+                )
+                logger.info(f"chords.mp3 R2 업로드 완료: {mp3_r2_key}")
+            except Exception as e:
+                logger.warning(f"chords.mp3 R2 업로드 실패: {e}")
+
+        # 원본 소스 오디오 업로드
+        # - 로컬 MP3: source_audio_path 직접 업로드
+        # - YouTube: midi_cover.py가 output_dir/original.mp3로 다운로드한 파일 업로드
+        source_local_path = None
+        if not is_youtube and Path(source_audio_path).exists():
+            source_local_path = source_audio_path
+        elif is_youtube:
+            yt_downloaded = output_dir / 'original.mp3'
+            if yt_downloaded.exists():
+                source_local_path = str(yt_downloaded)
+
+        if source_local_path:
+            try:
+                source_audio_r2_key = upload_file(
+                    source_local_path,
+                    f'audio/{workspace_id}/{midi_id}/source.mp3',
+                    'audio/mpeg',
+                )
+                logger.info(f"source.mp3 R2 업로드 완료: {source_audio_r2_key}")
+            except Exception as e:
+                logger.warning(f"source.mp3 R2 업로드 실패: {e}")
+    else:
+        logger.info("R2 환경 변수 미설정 — 로컬 경로 사용")
+
     # DB에 midi_masters 저장
     conn = sqlite3.connect(db_path)
     try:
@@ -108,7 +185,7 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
             INSERT INTO midi_masters (id, midi_r2_key, mp3_r2_key, created_at)
             VALUES (?, ?, ?, ?)
             """,
-            (master_id, midi_path, mp3_path, now)
+            (master_id, midi_r2_key, mp3_r2_key, now)
         )
 
         # workspace에 cover_midi_id 업데이트
@@ -116,6 +193,39 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
             "UPDATE workspaces SET cover_midi_id = ?, updated_at = ? WHERE id = ?",
             (master_id, now, workspace_id)
         )
+
+        # workspace_midis: midi_master_id 연결 + status 업데이트
+        # YouTube/MP3 모두 analyzing으로 (schema에 없는 'midi_generating' 제거)
+        if workspace_midi_id:
+            next_status = 'analyzing'
+            if source_audio_r2_key:
+                conn.execute(
+                    f"UPDATE workspace_midis SET midi_master_id = ?, status = '{next_status}', audio_url = ?, updated_at = ? WHERE id = ?",
+                    (master_id, source_audio_r2_key, now, workspace_midi_id)
+                )
+            else:
+                conn.execute(
+                    f"UPDATE workspace_midis SET midi_master_id = ?, status = '{next_status}', updated_at = ? WHERE id = ?",
+                    (master_id, now, workspace_midi_id)
+                )
+            # midi.analyze 잡 enqueue
+            analyze_job_id = str(uuid.uuid4())
+            # Gemini 분석은 MIDI 렌더링 mp3(chords.mp3)로 — 설계 문서 기준
+            analyze_mp3 = mp3_path
+            analyze_payload = json.dumps({
+                'workspace_id': workspace_id,
+                'workspace_midi_id': workspace_midi_id,
+                'midi_path': midi_path,
+                'mp3_path': analyze_mp3,
+            })
+            conn.execute(
+                """
+                INSERT INTO job_queue (id, type, payload, status, attempts, max_attempts, scheduled_at)
+                VALUES (?, 'midi.analyze', ?, 'pending', 0, 3, ?)
+                """,
+                (analyze_job_id, analyze_payload, now)
+            )
+
         conn.commit()
         logger.info(f"midi_masters 저장 완료: {master_id}")
     finally:

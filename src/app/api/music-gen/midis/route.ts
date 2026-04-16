@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const source_type = searchParams.get('source_type')
 
     const db = getDb()
-    const conditions = ['(w.user_id = ? OR w.user_id IS NULL)']
+    const conditions = ['w.user_id = ?']
     const params: unknown[] = [user.id]
 
     if (workspace_id) {

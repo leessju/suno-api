@@ -31,6 +31,7 @@ export const CreateWorkspaceMidiSchema = z.object({
   label: z.string().optional(),
   gen_mode: GenModeSchema.optional(),
   original_ratio: z.number().int().min(0).max(100).optional(),
+  cover_image: z.string().optional(),
 })
 
 export const UpdateWorkspaceMidiSchema = z.object({

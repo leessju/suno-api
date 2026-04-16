@@ -20,7 +20,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const midis = db.prepare(`
       SELECT wm.*,
-             mm.title as midi_title, mm.duration as midi_duration,
              mm.bpm, mm.key_signature,
              (SELECT COUNT(*) FROM workspace_tracks wt WHERE wt.workspace_midi_id = wm.id) as track_count
       FROM workspace_midis wm
@@ -51,20 +50,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const parsed = CreateWorkspaceMidiSchema.safeParse(body)
     if (!parsed.success) return err('VALIDATION_ERROR', parsed.error.message, 400)
 
-    const { source_type, source_ref, label, gen_mode, original_ratio } = parsed.data
+    const { source_type, source_ref, label, gen_mode, original_ratio, cover_image } = parsed.data
     const id = `wm_${randomUUID()}`
     const now = Date.now()
 
     db.prepare(`
       INSERT INTO workspace_midis
-        (id, workspace_id, source_type, source_ref, label, gen_mode, original_ratio, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        (id, workspace_id, source_type, source_ref, label, gen_mode, original_ratio, cover_image, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
     `).run(
       id, workspaceId, source_type,
       source_ref ?? null,
       label ?? null,
       gen_mode ?? 'auto',
       original_ratio ?? 50,
+      cover_image ?? null,
       now, now
     )
 

@@ -7,6 +7,7 @@ import { useSunoAccount } from './SunoAccountProvider'
 import { ThemeToggle } from './ThemeToggle'
 import { UserProfileMenu } from './UserProfileMenu'
 import { Breadcrumb } from './Breadcrumb'
+import { useSideNav } from './SideNavProvider'
 
 interface StudioHeaderProps {
   userName: string
@@ -17,6 +18,7 @@ interface StudioHeaderProps {
 export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps) {
   const { channels, selectedChannel, setSelectedChannel, isLoading: channelLoading } = useChannel()
   const { accounts, selectedAccount, setSelectedAccount, isLoading: accountLoading } = useSunoAccount()
+  const { collapsed } = useSideNav()
   const [mounted, setMounted] = useState(false)
   const [channelThumbnails, setChannelThumbnails] = useState<Record<number, string>>({})
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -70,16 +72,16 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
 
   return (
     <header className="h-16 flex-shrink-0 bg-background border-b border-border flex z-10">
-      {/* 좌측: 로고 영역 (사이드바 폭과 동일) */}
-      <div className="w-64 flex-shrink-0 flex items-center px-4 border-r border-border">
-        <Link href="/" className="flex items-center gap-2 text-foreground">
-          <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {/* 좌측: 로고 영역 (사이드바 폭과 동기화) */}
+      <div className={`flex-shrink-0 flex items-center border-r border-border transition-all duration-200 ${collapsed ? 'w-12 justify-center px-0' : 'w-64 px-4'}`}>
+        <Link href="/" className="flex items-center gap-2 text-foreground overflow-hidden">
+          <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="flex-shrink-0">
             <path d="M20 5C11.7157 5 5 11.7157 5 20C5 28.2843 11.7157 35 20 35C28.2843 35 35 28.2843 35 20" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
             <circle cx="20" cy="20" r="4" fill="#00E5FF"/>
             <path d="M20 12V8" stroke="#00E5FF" strokeWidth="3" strokeLinecap="round"/>
             <path d="M28 20H32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
           </svg>
-          <span className="font-inter text-xl tracking-[0.04em]" style={{ fontWeight: 400 }}>SyncLens</span>
+          <span className={`font-inter text-xl tracking-[0.04em] whitespace-nowrap transition-all duration-200 ${collapsed ? 'opacity-0 w-0' : 'opacity-100'}`} style={{ fontWeight: 400 }}>SyncLens</span>
         </Link>
       </div>
 

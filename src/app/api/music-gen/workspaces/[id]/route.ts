@@ -23,7 +23,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!workspace) return err('NOT_FOUND', '워크스페이스를 찾을 수 없습니다.', 404)
 
     const midis = db.prepare(`
-      SELECT wm.*, mm.bpm, mm.key_signature, mm.chord_json
+      SELECT wm.*, mm.bpm, mm.key_signature, mm.chord_json,
+             (SELECT COUNT(*) FROM workspace_tracks wt WHERE wt.workspace_midi_id = wm.id) as track_count
       FROM workspace_midis wm
       LEFT JOIN midi_masters mm ON mm.id = wm.midi_master_id
       WHERE wm.workspace_id = ?

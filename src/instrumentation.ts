@@ -101,5 +101,48 @@ export async function register() {
     // AccountManager 데몬 시작
     startAccountDaemon();
     console.log('[Instrumentation] AccountDaemon started');
+
+    // Python Worker 자동 시작 (이미 실행 중이면 스킵)
+    await startPythonWorker();
   }
+}
+
+async function startPythonWorker(): Promise<void> {
+  // 빌드 타임 / Edge runtime에서는 실행하지 않음
+  if (typeof process === 'undefined') return;
+
+  const { spawn } = await import('child_process');
+  const path = await import('path');
+  const fs = await import('fs');
+
+  const root = process.cwd();
+  const pidFile = path.join(root, 'data', 'worker.pid');
+
+  // PID 파일이 있고 프로세스가 살아있으면 스킵 (pnpm dev의 dev-worker.sh가 이미 실행했을 때)
+  if (fs.existsSync(pidFile)) {
+    try {
+      const pid = parseInt(fs.readFileSync(pidFile, 'utf-8').trim(), 10);
+      process.kill(pid, 0); // 신호 0 = 프로세스 생존 확인만
+      console.log(`[Instrumentation] Python worker already running (PID=${pid}), skipping spawn`);
+      return;
+    } catch {
+      // stale PID 파일 → 계속 진행
+    }
+  }
+
+  const workerScript = path.join(root, 'scripts', 'dev-worker.sh');
+  if (!fs.existsSync(workerScript)) {
+    console.warn('[Instrumentation] dev-worker.sh not found, skipping Python worker start');
+    return;
+  }
+
+  // 자식 프로세스를 분리(detached)로 실행 → Next.js 종료 후에도 유지
+  const child = spawn(workerScript, [], {
+    detached: true,
+    stdio: 'ignore',
+    cwd: root,
+    env: { ...process.env },
+  });
+  child.unref();
+  console.log(`[Instrumentation] Python worker spawned (PID=${child.pid})`);
 }

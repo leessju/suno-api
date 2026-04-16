@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getMidiThumbnail, extractYoutubeVideoId } from '@/lib/youtube-utils'
+import { extractMp3Cover } from '@/lib/mp3-cover'
 
 interface WorkspaceMidi {
   id: string
   label: string | null
   source_type: string
   source_ref: string | null
+  cover_image?: string | null
   gen_mode: string
   original_ratio: number
   status: string
@@ -25,16 +28,19 @@ interface Workspace {
   suno_sync_status: string
   suno_workspace_id: string | null
   channel_name: string | null
+  channel_id: string | null
   suno_account_label: string | null
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending:    { label: '대기', color: 'bg-accent text-muted-foreground' },
-  converting: { label: '변환 중', color: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' },
-  ready:      { label: '준비', color: 'bg-accent text-foreground' },
-  generating: { label: '생성 중', color: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
-  done:       { label: '완료', color: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
-  error:      { label: '오류', color: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
+  pending:         { label: '대기',         color: 'bg-accent text-muted-foreground' },
+  converting:      { label: 'MP3 변환 중',  color: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' },
+  midi_generating: { label: 'MIDI 생성 중', color: 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+  analyzing:       { label: '분석 중',      color: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+  ready:           { label: '완료',          color: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+  generating:      { label: '생성 중',      color: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' },
+  done:            { label: '완료',         color: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+  error:           { label: '오류',         color: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' },
 }
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
@@ -51,59 +57,204 @@ export default function WorkspaceHubPage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [midis, setMidis] = useState<WorkspaceMidi[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddMidi, setShowAddMidi] = useState(searchParams.get('add_midi') === '1')
+  const [showAddMidi, setShowAddMidi] = useState(() => searchParams.get('add_midi') === '1')
+
+  // URL 파라미터가 바뀔 때 (사이드바 링크 클릭 등) 폼 표시 상태 동기화
+  useEffect(() => {
+    setShowAddMidi(searchParams.get('add_midi') === '1')
+  }, [searchParams])
+
+  // 이름 편집 상태
+  const [editingName, setEditingName] = useState(false)
+  const [editNameVal, setEditNameVal] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
+  // 채널 썸네일
+  const [channelThumb, setChannelThumb] = useState<string | null>(null)
 
   // MIDI 추가 폼 상태
-  const [newMidi, setNewMidi] = useState({ source_type: 'youtube_video', source_ref: '', label: '', gen_mode: 'auto', original_ratio: 50 })
+  const [sourceType, setSourceType] = useState<'youtube_video' | 'mp3_file'>('youtube_video')
+  const [sourceRef, setSourceRef] = useState('')
+  const [label, setLabel] = useState('')
   const [addingMidi, setAddingMidi] = useState(false)
   const [addError, setAddError] = useState('')
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  // YouTube URL 실시간 검증
+  const [ytStatus, setYtStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle')
+  const [ytTitle, setYtTitle] = useState<string | null>(null)
+  const ytDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // MP3 커버 이미지 (Object URL)
+  const [mp3Cover, setMp3Cover] = useState<string | null>(null)
+  const [mp3File, setMp3File] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const PROCESSING_STATUSES = ['pending', 'converting', 'midi_generating', 'analyzing', 'generating']
+
+  const loadData = useCallback(async (isPolling = false) => {
+    if (!isPolling) setLoading(true)
     try {
-      const [wsRes, midiRes] = await Promise.all([
-        fetch(`/api/music-gen/workspaces/${id}`),
-        fetch(`/api/music-gen/workspaces/${id}/midis`),
-      ])
+      const wsRes = await fetch(`/api/music-gen/workspaces/${id}`)
       const wsData = await wsRes.json()
-      const midiData = await midiRes.json()
-      setWorkspace(wsData.data)
-      setMidis(midiData.data ?? [])
+      const ws = wsData?.data ?? wsData
+      setWorkspace(ws)
+      const midiList: WorkspaceMidi[] = Array.isArray(ws?.midis) ? ws.midis : []
+      setMidis(midiList)
+
+      // 처리 중인 MIDI가 있으면 5초 후 자동 갱신
+      if (midiList.some(m => PROCESSING_STATUSES.includes(m.status))) {
+        pollRef.current = setTimeout(() => loadData(true), 5000)
+      }
     } catch (e) {
       console.error(e)
     } finally {
-      setLoading(false)
+      if (!isPolling) setLoading(false)
     }
   }, [id])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+    return () => { if (pollRef.current) clearTimeout(pollRef.current) }
+  }, [loadData])
+
+  // 채널 썸네일 fetch
+  useEffect(() => {
+    if (workspace?.channel_id) {
+      fetch(`/api/music-gen/channels/${workspace.channel_id}/youtube-info`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          const ch = data?.data ?? data
+          if (ch?.thumbnail) setChannelThumb(ch.thumbnail)
+        })
+        .catch(() => {})
+    }
+  }, [workspace?.channel_id])
+
+  useEffect(() => {
+    if (ytTitle && !label.trim()) setLabel(ytTitle)
+  }, [ytTitle])
+
+  function handleYoutubeUrlChange(url: string) {
+    setSourceRef(url)
+    setYtTitle(null)
+    if (ytDebounceRef.current) clearTimeout(ytDebounceRef.current)
+    if (!url.trim()) { setYtStatus('idle'); return }
+    const videoId = extractYoutubeVideoId(url)
+    if (!videoId) { setYtStatus('invalid'); return }
+    setYtStatus('checking')
+    ytDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, { signal: AbortSignal.timeout(5000) })
+        if (res.ok) {
+          const data = await res.json()
+          setYtStatus('valid')
+          setYtTitle(data.title ?? null)
+        } else {
+          setYtStatus('invalid')
+        }
+      } catch {
+        setYtStatus('invalid')
+      }
+    }, 600)
+  }
+
+  async function handleSaveName() {
+    if (!editNameVal.trim() || editNameVal === workspace?.name) { setEditingName(false); return }
+    setSavingName(true)
+    try {
+      const res = await fetch(`/api/music-gen/workspaces/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editNameVal.trim() }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const ws = data?.data ?? data
+        setWorkspace(prev => prev ? { ...prev, name: ws.name ?? prev.name, suno_sync_status: ws.suno_sync_status ?? prev.suno_sync_status } : prev)
+      }
+    } finally {
+      setSavingName(false)
+      setEditingName(false)
+    }
+  }
 
   async function handleAddMidi(e: React.FormEvent) {
     e.preventDefault()
-    setAddingMidi(true)
     setAddError('')
+    if (!sourceRef.trim()) { setAddError('소스를 입력하세요'); return }
+    if (sourceType === 'youtube_video' && ytStatus !== 'valid') { setAddError('유효한 YouTube URL을 입력하세요'); return }
+
+    let resolvedSourceRef = sourceRef
+    let coverImageData: string | null = null
+
+    if (sourceType === 'mp3_file' && mp3File) {
+      setUploading(true)
+      try {
+        const fd = new FormData()
+        fd.append('file', mp3File)
+        const upRes = await fetch('/api/music-gen/upload', { method: 'POST', body: fd })
+        const upData = await upRes.json()
+        if (!upRes.ok) throw new Error(upData.error?.message ?? '업로드 실패')
+        resolvedSourceRef = upData.data?.path ?? upData.path ?? sourceRef
+      } finally {
+        setUploading(false)
+      }
+
+      // Convert cover art blob URL to data URL for storage
+      if (mp3Cover) {
+        try {
+          const blob = await fetch(mp3Cover).then(r => r.blob())
+          coverImageData = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result as string)
+            reader.onerror = reject
+            reader.readAsDataURL(blob)
+          })
+        } catch { /* cover art is optional */ }
+      }
+    }
+
+    setAddingMidi(true)
     try {
       const res = await fetch(`/api/music-gen/workspaces/${id}/midis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          source_type: newMidi.source_type,
-          source_ref: newMidi.source_ref || undefined,
-          label: newMidi.label || undefined,
-          gen_mode: newMidi.gen_mode,
-          original_ratio: newMidi.original_ratio,
+          source_type: sourceType,
+          source_ref: resolvedSourceRef,
+          label: label || undefined,
+          gen_mode: 'auto',
+          original_ratio: 50,
+          cover_image: coverImageData || undefined,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error?.message ?? 'Failed')
-      setMidis(prev => [...prev, { ...data.data, track_count: 0 }])
+      if (!res.ok) throw new Error(data.error?.message ?? '오류가 발생했습니다')
+      const savedMidi = data?.data ?? data
+      fetch(`/api/music-gen/workspaces/${id}/midis/${savedMidi.id}/analyze`, { method: 'POST' }).catch(() => {})
+      setMidis(prev => [...prev, { ...savedMidi, track_count: 0 }])
+      // 새 MIDI가 처리 중이므로 폴링 즉시 시작
+      if (pollRef.current) clearTimeout(pollRef.current)
+      pollRef.current = setTimeout(() => loadData(true), 3000)
       setShowAddMidi(false)
-      setNewMidi({ source_type: 'youtube_video', source_ref: '', label: '', gen_mode: 'auto', original_ratio: 50 })
+      setSourceType('youtube_video'); setSourceRef(''); setLabel('')
+      setYtStatus('idle'); setYtTitle(null)
+      setMp3File(null)
+      if (mp3Cover) { URL.revokeObjectURL(mp3Cover); setMp3Cover(null) }
     } catch (e) {
       setAddError(e instanceof Error ? e.message : '오류가 발생했습니다')
     } finally {
       setAddingMidi(false)
     }
+  }
+
+  function handleCancelAdd() {
+    setShowAddMidi(false)
+    if (mp3Cover) { URL.revokeObjectURL(mp3Cover); setMp3Cover(null) }
+    setMp3File(null); setUploading(false)
+    setYtStatus('idle'); setYtTitle(null)
+    setAddError('')
   }
 
   if (loading) {
@@ -122,33 +273,52 @@ export default function WorkspaceHubPage() {
       {/* 헤더 */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">{workspace.name}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+          {editingName ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={editNameVal}
+                onChange={e => setEditNameVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
+                className="text-xl font-semibold bg-background border border-input rounded px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <button onClick={handleSaveName} disabled={savingName} className="text-xs text-primary hover:opacity-80 disabled:opacity-50">저장</button>
+              <button onClick={() => setEditingName(false)} className="text-xs text-muted-foreground hover:text-foreground">취소</button>
+            </div>
+          ) : (
+            <h1
+              className="text-xl font-semibold text-foreground cursor-pointer hover:opacity-70 transition-opacity"
+              onClick={() => { setEditNameVal(workspace.name); setEditingName(true) }}
+              title="클릭하여 이름 편집"
+            >
+              {workspace.name}
+            </h1>
+          )}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {workspace.suno_account_label && (
-              <span className="text-xs text-muted-foreground">{workspace.suno_account_label}</span>
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400">
+                <img src="https://suno.com/favicon.ico" alt="" className="w-3 h-3 rounded-sm" />
+                {workspace.suno_account_label}
+              </span>
             )}
             {workspace.channel_name && (
               <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{workspace.channel_name}</span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {channelThumb && <img src={channelThumb} alt="" className="w-4 h-4 rounded-full object-cover" />}
+                  {workspace.channel_name}
+                </span>
               </>
             )}
-            <span className="text-muted-foreground">·</span>
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-              workspace.suno_sync_status === 'synced' ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-              : workspace.suno_sync_status === 'sync_failed' ? 'bg-red-50 dark:bg-red-900/30 text-red-500 dark:text-red-400'
-              : 'bg-accent text-muted-foreground'
-            }`}>
-              {workspace.suno_sync_status === 'synced' ? '싱크됨' : workspace.suno_sync_status === 'sync_failed' ? '싱크 실패' : '로컬'}
-            </span>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddMidi(true)}
-          className="px-4 py-2 bg-primary hover:bg-primary text-primary-foreground text-sm rounded-lg transition-colors"
-        >
-          + MIDI 추가
-        </button>
+        {!showAddMidi && (
+          <button
+            onClick={() => setShowAddMidi(true)}
+            className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
+          >
+            + MIDI 추가
+          </button>
+        )}
       </div>
 
       {/* MIDI 추가 폼 */}
@@ -156,75 +326,114 @@ export default function WorkspaceHubPage() {
         <div className="bg-background border border-border rounded-lg p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground mb-4">새 MIDI 추가</h2>
           <form onSubmit={handleAddMidi} className="space-y-4">
-            {addError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">{addError}</div>}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">소스 타입</label>
-                <select
-                  value={newMidi.source_type}
-                  onChange={e => setNewMidi(p => ({ ...p, source_type: e.target.value }))}
-                  className="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="youtube_video">YouTube</option>
-                  <option value="mp3_file">MP3</option>
-                  <option value="direct_midi">MIDI 직접</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">생성 모드</label>
-                <select
-                  value={newMidi.gen_mode}
-                  onChange={e => setNewMidi(p => ({ ...p, gen_mode: e.target.value }))}
-                  className="w-full px-2 py-1.5 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="auto">자동</option>
-                  <option value="manual">수동</option>
-                </select>
-              </div>
-            </div>
+            {/* 소스 타입 */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">소스 URL / 경로</label>
-              <input
-                type="text"
-                value={newMidi.source_ref}
-                onChange={e => setNewMidi(p => ({ ...p, source_ref: e.target.value }))}
-                placeholder="https://youtube.com/watch?v=... 또는 /path/to/file.mp3"
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
+              <label className="block text-xs font-medium text-foreground mb-2">소스 타입</label>
+              <div className="flex gap-6">
+                {([
+                  { value: 'youtube_video', label: 'YouTube' },
+                  { value: 'mp3_file', label: 'MP3 파일' },
+                ] as const).map(opt => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="source_type"
+                      value={opt.value}
+                      checked={sourceType === opt.value}
+                      onChange={() => { setSourceType(opt.value); setSourceRef(''); setLabel(''); setYtStatus('idle'); setYtTitle(null); if (mp3Cover) { URL.revokeObjectURL(mp3Cover); setMp3Cover(null) } }}
+                      className="accent-primary w-3.5 h-3.5"
+                    />
+                    <span className="text-sm text-foreground">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
+
+            {/* URL / 파일 */}
+            <div>
+              {sourceType === 'youtube_video' ? (
+                <>
+                  <label className="block text-xs font-medium text-foreground mb-1">YouTube URL</label>
+                  <input
+                    type="text"
+                    value={sourceRef}
+                    onChange={e => handleYoutubeUrlChange(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className={`w-full px-3 py-2 text-sm bg-background border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${
+                      ytStatus === 'valid' ? 'border-green-400 focus:ring-green-400/50'
+                      : ytStatus === 'invalid' ? 'border-red-400 focus:ring-red-400/50'
+                      : 'border-input focus:ring-ring'
+                    }`}
+                  />
+                  {ytStatus === 'checking' && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                      영상 확인 중...
+                    </p>
+                  )}
+                  {ytStatus === 'valid' && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <svg className="w-3 h-3 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                      <span className="text-xs text-green-600 dark:text-green-400">유효함</span>
+                    </div>
+                  )}
+                  {ytStatus === 'valid' && getMidiThumbnail('youtube_video', sourceRef) && (
+                    <img src={getMidiThumbnail('youtube_video', sourceRef)!} alt="" className="mt-2 w-40 aspect-video object-cover rounded-md border border-border" />
+                  )}
+                  {ytStatus === 'invalid' && (
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-red-500">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      유효하지 않은 URL
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="block text-xs font-medium text-foreground mb-1">MP3 파일</label>
+                  <input
+                    type="file"
+                    accept="audio/mp3,audio/mpeg,.mp3"
+                    onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      setMp3File(file)
+                      setSourceRef(file.name)
+                      setLabel(prev => prev || file.name.replace(/\.[^.]+$/, ''))
+                      if (mp3Cover) URL.revokeObjectURL(mp3Cover)
+                      const cover = await extractMp3Cover(file)
+                      setMp3Cover(cover)
+                    }}
+                    className="w-full text-sm text-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-accent file:text-foreground hover:file:bg-accent/80 cursor-pointer"
+                  />
+                  {mp3Cover && <img src={mp3Cover} alt="" className="mt-2 w-40 h-40 object-cover rounded-md border border-border" />}
+                </>
+              )}
+            </div>
+
+            {/* 라벨 */}
             <div>
               <label className="block text-xs font-medium text-foreground mb-1">라벨 (선택)</label>
               <input
                 type="text"
-                value={newMidi.label}
-                onChange={e => setNewMidi(p => ({ ...p, label: e.target.value }))}
+                value={label}
+                onChange={e => setLabel(e.target.value)}
                 placeholder="예: 기억의 빈자리 커버"
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1">
-                원곡:스타일 비율 — {newMidi.original_ratio}% 원곡
-              </label>
-              <input
-                type="range"
-                min={0} max={100} step={5}
-                value={newMidi.original_ratio}
-                onChange={e => setNewMidi(p => ({ ...p, original_ratio: Number(e.target.value) }))}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                <span>순수 스타일</span>
-                <span>균형</span>
-                <span>원곡 밀착</span>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="submit" disabled={addingMidi} className="px-4 py-2 bg-primary hover:bg-primary disabled:opacity-50 text-primary-foreground text-sm rounded-md transition-colors">
-                {addingMidi ? '추가 중...' : 'MIDI 추가'}
-              </button>
-              <button type="button" onClick={() => setShowAddMidi(false)} className="px-4 py-2 bg-accent hover:bg-background dark:hover:bg-accent text-foreground text-sm rounded-md transition-colors">
+
+            {addError && <p className="text-sm text-red-500">{addError}</p>}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <button type="button" onClick={handleCancelAdd} className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground text-sm rounded-lg transition-colors">
                 취소
+              </button>
+              <button
+                type="submit"
+                disabled={addingMidi || uploading || !sourceRef.trim() || (sourceType === 'youtube_video' && ytStatus !== 'valid') || ytStatus === 'checking'}
+                className="px-4 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-opacity"
+              >
+                {uploading ? '업로드 중...' : addingMidi ? '저장 중...' : '저장'}
               </button>
             </div>
           </form>
@@ -232,42 +441,51 @@ export default function WorkspaceHubPage() {
       )}
 
       {/* MIDI 카드 그리드 */}
-      {midis.length === 0 && !showAddMidi ? (
+      {!showAddMidi && midis.length === 0 && (
         <div className="bg-background border border-dashed border-border rounded-lg p-10 text-center">
           <p className="text-sm text-muted-foreground mb-3">아직 MIDI가 없습니다.</p>
           <button
             onClick={() => setShowAddMidi(true)}
-            className="px-4 py-2 bg-primary hover:bg-primary text-primary-foreground text-sm rounded-lg transition-colors"
+            className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
           >
             첫 MIDI 추가
           </button>
         </div>
-      ) : (
+      )}
+      {!showAddMidi && midis.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {midis.map(midi => {
             const st = STATUS_LABELS[midi.status] ?? STATUS_LABELS.pending
+            const thumbnail = getMidiThumbnail(midi.source_type, midi.source_ref, midi.cover_image)
             return (
               <Link
                 key={midi.id}
                 href={`/workspaces/${id}/midis/${midi.id}`}
-                className="bg-background border border-border rounded-lg p-4 shadow-sm hover:border-border dark:hover:border-foreground transition-colors"
+                className="bg-background border border-border rounded-lg overflow-hidden shadow-sm hover:border-ring/50 transition-colors"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">{midi.label ?? 'MIDI'}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{SOURCE_TYPE_LABELS[midi.source_type] ?? midi.source_type}</p>
+                {thumbnail && (
+                  <div className="w-full aspect-video bg-accent overflow-hidden">
+                    <img src={thumbnail} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <span className={`flex-shrink-0 ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                    {st.label}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{midi.gen_mode === 'auto' ? '자동' : '수동'} · {midi.original_ratio}% 원곡</span>
-                  <span>{midi.track_count}개 트랙</span>
-                </div>
-                {midi.source_ref && (
-                  <p className="text-[11px] text-muted-foreground mt-2 truncate">{midi.source_ref}</p>
                 )}
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-foreground truncate">{midi.label ?? 'MIDI'}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{SOURCE_TYPE_LABELS[midi.source_type] ?? midi.source_type}</p>
+                    </div>
+                    <span className={`flex-shrink-0 ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
+                      {st.label}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{new Date(midi.created_at).toLocaleDateString('ko-KR')}</span>
+                    <span>{midi.track_count}개 트랙</span>
+                  </div>
+                  {!thumbnail && midi.source_ref && (
+                    <p className="text-[11px] text-muted-foreground mt-2 truncate">{midi.source_ref}</p>
+                  )}
+                </div>
               </Link>
             )
           })}
@@ -288,7 +506,7 @@ export default function WorkspaceHubPage() {
               <Link
                 key={item.href}
                 href={`/workspaces/${id}/${item.href}`}
-                className="px-3 py-1.5 text-xs bg-background border border-border rounded-md text-muted-foreground hover:border-input  transition-colors"
+                className="px-3 py-1.5 text-xs bg-background border border-border rounded-md text-muted-foreground hover:border-input transition-colors"
               >
                 {item.label}
               </Link>

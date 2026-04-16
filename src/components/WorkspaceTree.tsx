@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useSunoAccount } from './SunoAccountProvider'
 import { useChannel } from './ChannelProvider'
 
@@ -17,16 +17,19 @@ interface Workspace {
   id: string
   name: string
   suno_sync_status: string
+  created_at: number
   midis?: WorkspaceMidi[]
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-background',
-  converting: 'bg-amber-400',
-  ready: 'bg-primary/60',
-  generating: 'bg-purple-400',
-  done: 'bg-green-400',
-  error: 'bg-red-400',
+  pending:         'bg-background',
+  converting:      'bg-amber-400',
+  midi_generating: 'bg-orange-400',
+  analyzing:       'bg-blue-400',
+  ready:           'bg-primary/60',
+  generating:      'bg-purple-400',
+  done:            'bg-green-400',
+  error:           'bg-red-400',
 }
 
 const SOURCE_ICONS: Record<string, string> = {
@@ -39,8 +42,7 @@ export function WorkspaceTree() {
   const { selectedAccount } = useSunoAccount()
   const { selectedChannel } = useChannel()
   const pathname = usePathname()
-  const router = useRouter()
-
+  const searchParams = useSearchParams()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     try {
@@ -59,27 +61,52 @@ export function WorkspaceTree() {
 
     fetch(`/api/music-gen/workspaces?${params}`)
       .then(r => r.json())
-      .then(data => setWorkspaces(data.data ?? []))
+      .then(data => {
+        const all = Array.isArray(data) ? data : (data.data ?? [])
+        setWorkspaces(all.slice(0, 5))
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [selectedAccount, selectedChannel])
 
   useEffect(() => { loadWorkspaces() }, [loadWorkspaces])
 
+  // midi:deleted 이벤트 수신 시 트리에서 즉시 제거
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { midiId, workspaceId } = (e as CustomEvent<{ midiId: string; workspaceId: string }>).detail
+      setWorkspaces(prev => prev.map(w =>
+        w.id === workspaceId
+          ? { ...w, midis: w.midis?.filter(m => m.id !== midiId) }
+          : w
+      ))
+    }
+    window.addEventListener('midi:deleted', handler)
+    return () => window.removeEventListener('midi:deleted', handler)
+  }, [])
+
   const toggleExpand = useCallback(async (wsId: string) => {
     const next = new Set(expanded)
-    if (next.has(wsId)) {
+    const wasExpanded = next.has(wsId)
+    if (wasExpanded) {
       next.delete(wsId)
     } else {
       next.add(wsId)
-      // lazy load midis
+    }
+    // 즉시 열기 — 링크가 바로 나타나야 클릭 가능
+    setExpanded(next)
+    localStorage.setItem('expandedWorkspaces', JSON.stringify([...next]))
+
+    // lazy load midis (확장할 때만)
+    if (!wasExpanded) {
       const ws = workspaces.find(w => w.id === wsId)
       if (ws && !ws.midis) {
         setMidiLoading(prev => new Set([...prev, wsId]))
         try {
           const r = await fetch(`/api/music-gen/workspaces/${wsId}/midis`)
           const data = await r.json()
-          setWorkspaces(prev => prev.map(w => w.id === wsId ? { ...w, midis: data.data ?? [] } : w))
+          const midis = Array.isArray(data) ? data : (data.data ?? [])
+          setWorkspaces(prev => prev.map(w => w.id === wsId ? { ...w, midis } : w))
         } catch (e) {
           console.error(e)
         } finally {
@@ -87,26 +114,36 @@ export function WorkspaceTree() {
         }
       }
     }
-    setExpanded(next)
-    localStorage.setItem('expandedWorkspaces', JSON.stringify([...next]))
   }, [expanded, workspaces])
 
   const isWsActive = (id: string) => pathname.startsWith(`/workspaces/${id}`)
   const isMidiActive = (wsId: string, midiId: string) =>
     pathname.includes(`/workspaces/${wsId}/midis/${midiId}`)
+  const isWsRoot = (id: string) =>
+    pathname === `/workspaces/${id}` && !searchParams.has('add_midi')
+  const isAddMidi = (id: string) =>
+    pathname === `/workspaces/${id}` && searchParams.get('add_midi') === '1'
 
   return (
     <div>
-      {/* 새 워크스페이스 */}
-      <Link
-        href="/workspaces/new"
-        className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-muted-foreground dark:hover:text-foreground hover:bg-accent dark:hover:bg-accent transition-colors rounded-md mx-1"
-      >
-        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        새 워크스페이스
-      </Link>
+      {/* 헤더 링크 */}
+      <div className="flex items-center justify-between mx-1 mb-0.5">
+        <Link
+          href="/workspaces"
+          className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
+        >
+          전체 보기
+        </Link>
+        <Link
+          href="/workspaces/new"
+          className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          추가
+        </Link>
+      </div>
 
       {/* 워크스페이스 목록 */}
       <div className="space-y-0.5 px-1">
@@ -122,35 +159,44 @@ export function WorkspaceTree() {
         )}
         {workspaces.map(ws => (
           <div key={ws.id}>
-            {/* 워크스페이스 행 */}
-            <div className={`flex items-center gap-1 rounded-md transition-colors group ${isWsActive(ws.id) ? 'bg-accent' : 'hover:bg-accent dark:hover:bg-accent'}`}>
-              <button
-                onClick={() => toggleExpand(ws.id)}
-                className="w-5 h-6 flex items-center justify-center flex-shrink-0 text-muted-foreground"
-              >
-                <svg className={`w-2.5 h-2.5 transition-transform ${expanded.has(ws.id) ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 6 10">
-                  <path d="M1 1l4 4-4 4" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            {/* 워크스페이스 행 — 섹션 헤더와 동일 스타일 */}
+            <button
+              onClick={() => toggleExpand(ws.id)}
+              className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors rounded-sm ${isWsActive(ws.id) ? 'bg-accent' : 'hover:bg-accent'}`}
+            >
+              <span className={`text-xs truncate ${isWsActive(ws.id) ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                {ws.name}
+              </span>
+              <span className="flex items-center gap-1.5 flex-shrink-0 text-muted-foreground">
+                {ws.midis !== undefined && (
+                  <span className="text-[10px] tabular-nums">{ws.midis.length}</span>
+                )}
+                <svg className={`w-3.5 h-3.5 transition-transform duration-150 ${expanded.has(ws.id) ? 'rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
-              </button>
-              <Link
-                href={`/workspaces/${ws.id}`}
-                className="flex-1 min-w-0 py-1.5 pr-2"
-              >
-                <span className={`text-xs truncate block leading-tight ${isWsActive(ws.id) ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                  {ws.name}
-                </span>
-              </Link>
-              {ws.suno_sync_status === 'synced' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0 mr-2" title="Suno 싱크됨" />
-              )}
-              {ws.suno_sync_status === 'sync_failed' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 mr-2" title="싱크 실패" />
-              )}
-            </div>
+              </span>
+            </button>
 
             {/* MIDI 목록 (펼침) */}
             {expanded.has(ws.id) && (
               <div className="ml-5 pl-2 border-l border-border">
+                {/* 전체보기 / MIDI 추가 */}
+                <Link
+                  href={`/workspaces/${ws.id}`}
+                  className={`flex items-center gap-1.5 py-1 px-2 rounded-md text-xs transition-colors ${
+                    isWsRoot(ws.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  전체보기
+                </Link>
+                <Link
+                  href={`/workspaces/${ws.id}?add_midi=1`}
+                  className={`flex items-center gap-1.5 py-1 px-2 rounded-md text-xs transition-colors ${
+                    isAddMidi(ws.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  + MIDI 추가
+                </Link>
                 {midiLoading.has(ws.id) && (
                   <div className="py-1 space-y-1">
                     <div className="h-5 bg-accent rounded animate-pulse" />
@@ -171,19 +217,6 @@ export function WorkspaceTree() {
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_COLORS[midi.status] ?? 'bg-muted-foreground'}`} title={midi.status} />
                   </Link>
                 ))}
-                {!midiLoading.has(ws.id) && ws.midis?.length === 0 && (
-                  <p className="py-1 px-2 text-[11px] text-muted-foreground">MIDI 없음</p>
-                )}
-                {/* MIDI 추가 */}
-                <button
-                  onClick={() => router.push(`/workspaces/${ws.id}?add_midi=1`)}
-                  className="flex items-center gap-1 py-1 px-2 text-[11px] text-muted-foreground hover:text-muted-foreground dark:hover:text-foreground transition-colors w-full"
-                >
-                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  MIDI 추가
-                </button>
               </div>
             )}
           </div>

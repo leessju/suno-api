@@ -1,5 +1,9 @@
 """
 Job Dispatcher — SQLite job_queue 폴링 + 핸들러 라우팅
+
+동시성 정책:
+  - midi.convert (GPU/CPU 집약): 최대 1개 동시 실행
+  - 그 외 (API 호출 등 I/O 대기): 최대 4개 동시 실행
 """
 
 import asyncio
@@ -15,6 +19,7 @@ logger = logging.getLogger('dispatcher')
 # Job 타입 → 핸들러 매핑
 JOB_HANDLERS: dict[str, str] = {
     'midi.convert': 'workers.python.stages.midi.handle_midi_convert',
+    'midi.analyze': 'workers.python.stages.analyze.handle_midi_analyze',
     'variants.generate': 'workers.python.stages.variants.handle_variants_generate',
     'suno.generate': 'workers.python.stages.suno.handle_suno_generate',
     'suno.poll': 'workers.python.stages.suno.handle_suno_poll',
@@ -24,13 +29,17 @@ JOB_HANDLERS: dict[str, str] = {
     'telegram.send': 'workers.python.stages.telegram.handle_telegram_send',
 }
 
+# GPU/CPU 집약 job — 동시 1개 제한
+HEAVY_JOB_TYPES = {'midi.convert'}
+
 
 class Dispatcher:
     def __init__(self, db_path: str, poll_interval: float = 1.0):
         self.db_path = db_path
         self.poll_interval = poll_interval
         self._handlers: dict[str, Callable] = {}
-        self._semaphore = asyncio.Semaphore(8)  # 최대 동시 실행
+        self._heavy_sem = asyncio.Semaphore(1)   # midi.convert: 1개
+        self._light_sem = asyncio.Semaphore(4)   # 나머지: 최대 4개
 
     def _get_db(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -127,7 +136,8 @@ class Dispatcher:
             self._fail_job(job_id, str(e), job['attempts'], job['max_attempts'])
             return
 
-        async with self._semaphore:
+        sem = self._heavy_sem if job_type in HEAVY_JOB_TYPES else self._light_sem
+        async with sem:
             try:
                 logger.info(f"Job 실행: {job_type} [{job_id[:8]}]")
                 await handler(job['payload'], db_path=self.db_path)
@@ -138,7 +148,7 @@ class Dispatcher:
                 self._fail_job(job_id, str(e), job['attempts'], job['max_attempts'])
 
     async def run(self, shutdown_event: asyncio.Event):
-        """메인 폴링 루프"""
+        """메인 폴링 루프 — heavy job 1개, light job 최대 4개 병렬"""
         logger.info(f"Dispatcher 시작 (poll_interval={self.poll_interval}s, db={self.db_path})")
 
         tasks: set[asyncio.Task] = set()

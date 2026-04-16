@@ -6,6 +6,7 @@ import { SideNav } from '@/components/SideNav'
 import { StudioHeader } from '@/components/StudioHeader'
 import { ChannelProvider } from '@/components/ChannelProvider'
 import { SunoAccountProvider } from '@/components/SunoAccountProvider'
+import { SideNavProvider } from '@/components/SideNavProvider'
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -18,6 +19,7 @@ export default async function StudioLayout({ children }: { children: React.React
   return (
     <ChannelProvider>
       <SunoAccountProvider>
+      <SideNavProvider>
         <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
           {/* 전역 상단 헤더 */}
           <StudioHeader userName={session.user.name ?? ''} userEmail={session.user.email ?? ''} isAdmin={isAdmin(session.user.id)} />
@@ -34,6 +36,7 @@ export default async function StudioLayout({ children }: { children: React.React
             </main>
           </div>
         </div>
+      </SideNavProvider>
       </SunoAccountProvider>
     </ChannelProvider>
   )

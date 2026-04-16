@@ -31,7 +31,8 @@ export default function NewWorkspacePage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error?.message ?? 'Failed to create workspace')
-      router.push(`/workspaces/${data.data.id}`)
+      const wsId = data?.id ?? data?.data?.id
+      router.push(`/workspaces/${wsId}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '오류가 발생했습니다')
     } finally {
@@ -45,10 +46,14 @@ export default function NewWorkspacePage() {
         <h1 className="text-xl font-semibold text-foreground">새 워크스페이스</h1>
         <p className="text-sm text-muted-foreground mt-1">
           이름을 입력하면 워크스페이스가 생성됩니다.
-          {selectedAccount && (
-            <span className="ml-1">Suno 계정: <strong className="text-foreground">{selectedAccount.label}</strong></span>
-          )}
         </p>
+        {selectedAccount && (
+          <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="https://suno.com/favicon.ico" alt="Suno" className="w-3.5 h-3.5 rounded-sm" />
+            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{selectedAccount.label}</span>
+          </div>
+        )}
       </div>
 
       <div className="bg-background border border-border rounded-lg shadow-sm p-6">

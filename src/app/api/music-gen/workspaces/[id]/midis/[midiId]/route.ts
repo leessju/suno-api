@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     const db = getDb()
     const tracks = db.prepare(
-      'SELECT * FROM workspace_tracks WHERE workspace_midi_id = ? ORDER BY created_at ASC'
+      'SELECT * FROM workspace_tracks WHERE workspace_midi_id = ?'
     ).all(midiId)
 
     // midi_master 정보 포함

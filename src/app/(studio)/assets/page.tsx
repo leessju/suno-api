@@ -139,23 +139,11 @@ function ImageSection({ title, description, channelId, imageType, aspectClass }:
 
 export default function AssetsPage() {
   const { selectedChannel } = useChannel()
-  const [activeTab, setActiveTab] = useState<'images' | 'r2' | 'midi'>('images')
-  const [r2Objects, setR2Objects] = useState<{ key: string; size: number; uploaded: string }[]>([])
-  const [r2Loading, setR2Loading] = useState(false)
-
-  useEffect(() => {
-    if (activeTab !== 'r2') return
-    setR2Loading(true)
-    fetch('/api/music-gen/assets/r2')
-      .then(r => r.ok ? r.json() : { data: [] })
-      .then(d => setR2Objects(Array.isArray(d) ? d : (d.data ?? [])))
-      .finally(() => setR2Loading(false))
-  }, [activeTab])
+  const [activeTab, setActiveTab] = useState<'video' | 'thumbnail'>('video')
 
   const tabs = [
-    { id: 'images', label: '배경 이미지' },
-    { id: 'r2', label: 'R2 파일' },
-    { id: 'midi', label: 'MIDI' },
+    { id: 'video', label: '영상이미지' },
+    { id: 'thumbnail', label: '썸네일이미지' },
   ] as const
 
   return (
@@ -178,112 +166,25 @@ export default function AssetsPage() {
         ))}
       </div>
 
-      {activeTab === 'images' && (
-        <div className="space-y-8">
-          <ImageSection
-            title="영상 이미지 업로드"
-            description="YouTube 영상 배경으로 사용할 이미지 (16:9 권장)"
-            channelId={selectedChannel?.id ?? null}
-            imageType="video"
-            aspectClass="aspect-video"
-          />
-          <div className="border-t border-border" />
-          <ImageSection
-            title="썸네일 배경이미지 업로드"
-            description="YouTube 썸네일 배경으로 사용할 이미지 (1280×720 권장)"
-            channelId={selectedChannel?.id ?? null}
-            imageType="thumbnail"
-            aspectClass="aspect-video"
-          />
-        </div>
+      {activeTab === 'video' && (
+        <ImageSection
+          title="영상 이미지 업로드"
+          description="YouTube 영상 배경으로 사용할 이미지 (16:9 권장)"
+          channelId={selectedChannel?.id ?? null}
+          imageType="video"
+          aspectClass="aspect-video"
+        />
       )}
-
-      {activeTab === 'r2' && (
-        <section className="space-y-3">
-          {r2Loading ? (
-            <div className="space-y-2">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-14 bg-accent rounded-lg animate-pulse" />)}
-            </div>
-          ) : r2Objects.length === 0 ? (
-            <div className="p-8 bg-background border border-dashed border-border rounded-lg text-center text-sm text-muted-foreground">
-              R2 버킷이 비어 있습니다
-            </div>
-          ) : (
-            <div className="bg-background border border-border rounded-lg divide-y divide-border">
-              {r2Objects.map(obj => {
-                const ext = obj.key.split('.').pop()?.toLowerCase() ?? ''
-                const isAudio = ['mp3', 'wav', 'ogg', 'flac'].includes(ext)
-                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
-                const filename = obj.key.split('/').pop() ?? obj.key
-                const url = `/api/r2/object/${obj.key}`
-                return (
-                  <div key={obj.key} className="px-4 py-3 hover:bg-accent transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{filename}</p>
-                        <div className="flex gap-3 mt-0.5">
-                          <span className="text-xs text-muted-foreground">{formatBytes(obj.size)}</span>
-                          <span className="text-xs text-muted-foreground">{new Date(obj.uploaded).toLocaleDateString('ko-KR')}</span>
-                        </div>
-                      </div>
-                      {!isAudio && !isImage && (
-                        <a href={url} download={filename} className="text-xs text-foreground hover:text-primary font-medium ml-4">다운로드</a>
-                      )}
-                    </div>
-                    {isAudio && <audio controls src={url} className="w-full h-8 mt-2" />}
-                    {isImage && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={url} alt={filename} className="mt-2 max-h-40 rounded object-contain" />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeTab === 'midi' && (
-        <MidiSection />
+      {activeTab === 'thumbnail' && (
+        <ImageSection
+          title="썸네일이미지 업로드"
+          description="YouTube 썸네일 배경으로 사용할 이미지 (1280×720 권장)"
+          channelId={selectedChannel?.id ?? null}
+          imageType="thumbnail"
+          aspectClass="aspect-video"
+        />
       )}
     </div>
   )
 }
 
-function MidiSection() {
-  const [midis, setMidis] = useState<{ id: string; source_url: string | null; bpm: number | null; key_signature: string | null; usage_count: number; created_at: number }[]>([])
-
-  useEffect(() => {
-    fetch('/api/music-gen/assets/midi')
-      .then(r => r.ok ? r.json() : { data: [] })
-      .then(d => setMidis(Array.isArray(d) ? d : (d.data ?? [])))
-  }, [])
-
-  if (midis.length === 0) {
-    return (
-      <div className="p-8 bg-background border border-dashed border-border rounded-lg text-center text-sm text-muted-foreground">
-        아직 MIDI 마스터가 없습니다
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-background border border-border rounded-lg divide-y divide-border">
-      {midis.map(midi => (
-        <div key={midi.id} className="px-4 py-3 flex items-center justify-between hover:bg-accent transition-colors">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
-              {midi.source_url ? new URL(midi.source_url).pathname.split('/').pop() : midi.id.slice(0, 12)}
-            </p>
-            <div className="flex gap-3 mt-0.5">
-              {midi.bpm && <span className="text-xs text-muted-foreground">{midi.bpm.toFixed(0)} BPM</span>}
-              {midi.key_signature && <span className="text-xs text-muted-foreground">{midi.key_signature}</span>}
-              <span className="text-xs text-muted-foreground">{midi.usage_count}회 사용</span>
-            </div>
-          </div>
-          <span className="text-xs text-muted-foreground ml-4">{new Date(midi.created_at).toLocaleDateString('ko-KR')}</span>
-        </div>
-      ))}
-    </div>
-  )
-}

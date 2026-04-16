@@ -13,24 +13,21 @@ interface Track {
 }
 
 interface Workspace { id: string; name: string }
-interface Channel { id: number; channel_name: string; channel_handle: string | null }
 
 export default function TracksPage() {
   const [tracks, setTracks] = useState<Track[]>([])
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
-  const [channels, setChannels] = useState<Channel[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters
   const [workspaceId, setWorkspaceId] = useState('')
-  const [channelId, setChannelId] = useState('')
   const [checked, setChecked] = useState('') // '' | '1' | '0'
   const [search, setSearch] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
 
   // Load filter options
   useEffect(() => {
     fetch('/api/music-gen/workspaces').then(r => r.json()).then(d => setWorkspaces(d.data ?? []))
-    fetch('/api/music-gen/channels').then(r => r.json()).then(d => setChannels(d.data ?? []))
   }, [])
 
   // Load tracks with filters
@@ -38,15 +35,14 @@ export default function TracksPage() {
     setLoading(true)
     const params = new URLSearchParams()
     if (workspaceId) params.set('workspace_id', workspaceId)
-    if (channelId) params.set('channel_id', channelId)
     if (checked !== '') params.set('is_checked', checked)
-    if (search) params.set('q', search)
+    if (appliedSearch) params.set('q', appliedSearch)
 
     fetch(`/api/music-gen/tracks?${params}`)
       .then(r => r.json())
       .then(d => setTracks(d.data ?? []))
       .finally(() => setLoading(false))
-  }, [workspaceId, channelId, checked, search])
+  }, [workspaceId, checked, appliedSearch])
 
   return (
     <div className="space-y-5">
@@ -64,20 +60,27 @@ export default function TracksPage() {
           <option value="">전체 워크스페이스</option>
           {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
-        <select value={channelId} onChange={e => setChannelId(e.target.value)}
-          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground">
-          <option value="">전체 채널</option>
-          {channels.map(c => <option key={c.id} value={c.id}>{c.channel_handle ? `@${c.channel_handle}` : c.channel_name}</option>)}
-        </select>
         <select value={checked} onChange={e => setChecked(e.target.value)}
           className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground">
           <option value="">전체 상태</option>
           <option value="1">확인됨</option>
           <option value="0">미확인</option>
         </select>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="트랙 ID 검색..."
-          className="h-8 px-3 text-sm rounded-md border border-border bg-background text-foreground flex-1 min-w-[160px]" />
+        <div className="flex gap-1 flex-1 min-w-[200px]">
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') setAppliedSearch(search) }}
+            placeholder="트랙 ID 검색..."
+            className="h-8 px-3 text-sm rounded-md border border-border bg-background text-foreground flex-1"
+          />
+          <button
+            onClick={() => setAppliedSearch(search)}
+            className="h-8 px-3 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex-shrink-0"
+          >
+            검색
+          </button>
+        </div>
       </div>
 
       {/* 트랙 목록 */}

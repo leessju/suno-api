@@ -14,6 +14,8 @@ interface ChannelContextValue {
   selectedChannel: Channel | null
   setSelectedChannel: (channel: Channel) => void
   isLoading: boolean
+  channelThumbnails: Record<number, string>
+  fetchThumbnail: (id: number) => void
 }
 
 const ChannelContext = createContext<ChannelContextValue>({
@@ -21,6 +23,8 @@ const ChannelContext = createContext<ChannelContextValue>({
   selectedChannel: null,
   setSelectedChannel: () => {},
   isLoading: true,
+  channelThumbnails: {},
+  fetchThumbnail: () => {},
 })
 
 export function useChannel() {
@@ -31,6 +35,7 @@ export function ChannelProvider({ children }: { children: ReactNode }) {
   const [channels, setChannels] = useState<Channel[]>([])
   const [selectedChannel, setSelectedChannelState] = useState<Channel | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [channelThumbnails, setChannelThumbnails] = useState<Record<number, string>>({})
 
   useEffect(() => {
     fetch('/api/music-gen/channels')
@@ -47,13 +52,28 @@ export function ChannelProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false))
   }, [])
 
+  const fetchThumbnail = useCallback((id: number) => {
+    if (channelThumbnails[id] !== undefined) return
+    fetch(`/api/music-gen/channels/${id}/youtube-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const info = data?.data ?? data
+        if (info?.thumbnail) {
+          setChannelThumbnails(prev => ({ ...prev, [id]: info.thumbnail }))
+        } else {
+          setChannelThumbnails(prev => ({ ...prev, [id]: '' }))
+        }
+      })
+      .catch(() => setChannelThumbnails(prev => ({ ...prev, [id]: '' })))
+  }, [channelThumbnails])
+
   const setSelectedChannel = useCallback((channel: Channel) => {
     setSelectedChannelState(channel)
     localStorage.setItem('selectedChannelId', String(channel.id))
   }, [])
 
   return (
-    <ChannelContext.Provider value={{ channels, selectedChannel, setSelectedChannel, isLoading }}>
+    <ChannelContext.Provider value={{ channels, selectedChannel, setSelectedChannel, isLoading, channelThumbnails, fetchThumbnail }}>
       {children}
     </ChannelContext.Provider>
   )

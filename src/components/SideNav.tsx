@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Suspense, useState } from 'react'
 import { WorkspaceTree } from './WorkspaceTree'
+import { useSideNav } from './SideNavProvider'
 
 interface Section {
   id: string
@@ -80,7 +81,7 @@ const iconItemInactive = "text-muted-foreground hover:bg-accent hover:text-foreg
 
 export function SideNav({ email }: { email: string }) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const { collapsed, toggleCollapsed } = useSideNav()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     channel: true,
     workspace: true,
@@ -90,21 +91,6 @@ export function SideNav({ email }: { email: string }) {
     uploads: false,
     assets: false,
   })
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidenavCollapsed')
-      if (saved === 'true') setCollapsed(true)
-    } catch {}
-  }, [])
-
-  function toggleCollapsed() {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem('sidenavCollapsed', String(next)) } catch {}
-      return next
-    })
-  }
 
   function toggleSection(id: string) {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }))
@@ -117,9 +103,9 @@ export function SideNav({ email }: { email: string }) {
 
   const sections: Section[] = [
     { id: 'channel', label: '채널', icon: <SignalIcon />, items: [{ href: '/channels', label: '채널 목록' }] },
-    { id: 'workspace', label: '워크스페이스', icon: <FolderIcon />, items: [], custom: <WorkspaceTree /> },
-    { id: 'midi', label: '미디파일', icon: <PianoIcon />, items: [{ href: '/midis', label: '전체 목록' }] },
-    { id: 'tracks', label: '노래리스트', icon: <MusicalNotesIcon />, items: [{ href: '/tracks', label: '전체 트랙' }] },
+    { id: 'workspace', label: '워크스페이스', icon: <FolderIcon />, items: [], custom: <Suspense><WorkspaceTree /></Suspense> },
+    { id: 'midi', label: 'MIDI파일', icon: <PianoIcon />, items: [{ href: '/midis', label: '전체 목록' }] },
+    { id: 'tracks', label: '음원리스트', icon: <MusicalNotesIcon />, items: [{ href: '/tracks', label: '전체 트랙' }] },
     { id: 'renders', label: '렌더영상', icon: <FilmIcon />, items: [{ href: '/renders', label: '영상 목록' }] },
     { id: 'uploads', label: '업로드영상', icon: <UploadIcon />, items: [{ href: '/uploads', label: '업로드 목록' }] },
     { id: 'assets', label: '에셋관리', icon: <PhotoIcon />, items: [{ href: '/assets', label: '에셋' }] },

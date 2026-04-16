@@ -108,6 +108,16 @@ function runMigrations(db: Database.Database): void {
     db.exec('CREATE INDEX IF NOT EXISTS idx_workspace_tracks_midi ON workspace_tracks(workspace_midi_id);');
   } catch { /* 이미 존재 */ }
 
+  // workspace_midis.cover_image 컬럼 추가
+  const workspaceMidiCols = db.pragma('table_info(workspace_midis)') as Array<{ name: string }>
+  if (!workspaceMidiCols.some(c => c.name === 'cover_image')) {
+    db.exec('ALTER TABLE workspace_midis ADD COLUMN cover_image TEXT;')
+  }
+  // workspace_midis.audio_url 컬럼 추가 (원본 소스 오디오 R2 key)
+  if (!workspaceMidiCols.some(c => c.name === 'audio_url')) {
+    db.exec('ALTER TABLE workspace_midis ADD COLUMN audio_url TEXT;')
+  }
+
   // 009: 멀티 유저 지원 + Suno 싱크 컬럼 추가
   const migration009 = fs.readFileSync(
     path.join(base, 'migrations/009_multi_user_suno_sync.sql'),
@@ -167,4 +177,25 @@ function runMigrations(db: Database.Database): void {
     'utf-8',
   );
   db.exec(migration011);
+
+  // 012: workspace_midis에 'analyzing' 상태 추가 (CHECK 제약 재생성)
+  // 'analyzing'이 이미 유효한 status인지 테스트 INSERT로 확인 후 필요 시 마이그레이션 실행
+  try {
+    db.prepare(
+      "INSERT OR ROLLBACK INTO workspace_midis(id,workspace_id,source_type,status,gen_mode,original_ratio,created_at,updated_at) VALUES('__test_analyzing__','__test__','youtube_video','analyzing','auto',50,0,0)"
+    ).run()
+    db.prepare("DELETE FROM workspace_midis WHERE id='__test_analyzing__'").run()
+    // 여기까지 도달하면 analyzing 상태가 이미 지원됨 — 마이그레이션 불필요
+  } catch {
+    // analyzing이 CHECK 제약에 없음 → 마이그레이션 실행
+    const migration012 = fs.readFileSync(
+      path.join(base, 'migrations/012_analyzing_status.sql'),
+      'utf-8',
+    )
+    try {
+      db.exec(migration012)
+    } catch (e) {
+      console.warn('[db] migration 012 skipped:', e)
+    }
+  }
 }
