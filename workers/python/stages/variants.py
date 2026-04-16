@@ -159,11 +159,18 @@ async def handle_variants_generate(payload: dict, db_path: str = './data/music-g
     original_prompt = payload.get("original_prompt", "")
     count = int(payload.get("count", 5))
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("VERTEX_AI_API_KEY", "")
     model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
+    # Vertex AI에서 미지원 모델명 매핑 (account-pool.ts와 동일)
+    MODEL_ALIAS = {
+        "gemini-3-flash-preview": "gemini-2.5-flash",
+        "gemini-3-pro-preview": "gemini-2.5-pro",
+    }
+    model_name = MODEL_ALIAS.get(model_name, model_name)
+
     if not api_key:
-        raise ValueError("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.")
+        raise ValueError("GEMINI_API_KEY 또는 VERTEX_AI_API_KEY 환경변수가 설정되지 않았습니다.")
 
     logger.info(
         f"variants.generate 시작: workspace={workspace_id}, "
