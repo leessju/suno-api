@@ -23,12 +23,19 @@
     {"id": "P3-4", "status": "done", "desc": "Telegram Bot"},
     {"id": "P4-1", "status": "done", "desc": "10화면 UI 완성"},
     {"id": "P4-2", "status": "done", "desc": "OpenClaw 자동 루프"},
-    {"id": "P4-3", "status": "done", "desc": "LLM 비용 트래킹 UI (대시보드 LlmCostBadge + 워크스페이스 LlmCostBreakdown + /api/music-gen/llm-usage)"}
+    {"id": "P4-3", "status": "done", "desc": "LLM 비용 트래킹 UI (대시보드 LlmCostBadge + 워크스페이스 LlmCostBreakdown + /api/music-gen/llm-usage)"},
+    {"id": "P5-R2", "status": "done", "desc": "Cloudflare R2 통합 — src/lib/r2.ts + /api/r2/upload + /api/r2/object/[...path] + assets 페이지 R2 섹션"}
   ],
   "next": {
     "id": "complete",
-    "action": "L3 PASS — YouTube 토큰 설정 시 L4 가능"
+    "action": "L4 PASS — R2 실호출 완료 + E2E 3연속 통과"
   },
+  "depth": "L4",
   "servers": {"web": "localhost:3001"},
-  "last_test_result": "L3 PASS — sign-up 200, channels/workspaces/jobs 200, better-auth 동작, Suno DB 관리 + Claude OAuth 포팅 완료"
+  "last_test_result": "L4 PASS — R2 업로드/다운로드 실호출 성공 + E2E 7-Step 3/3 연속 통과 (2026-04-16)",
+  "r2": {
+    "bucket": "music-gen",
+    "region": "APAC",
+    "auth": "Cloudflare API Token (Bearer)"
+  }
 }
