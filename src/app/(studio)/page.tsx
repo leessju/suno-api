@@ -33,50 +33,52 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">대시보드</h1>
-          <p className="text-gray-400 mt-1 text-sm">안녕하세요, {session?.user.name ?? session?.user.email}!</p>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">대시보드</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">안녕하세요, {session?.user.name ?? session?.user.email}!</p>
         </div>
         <Link
           href="/workspaces/new"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="px-4 py-2 bg-[#F6821F] hover:bg-[#e07318] text-white text-sm font-medium rounded-md transition-colors"
         >
           + 새 작업
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-gray-900 rounded-xl border border-gray-800">
-          <p className="text-sm text-gray-400">활성 Job</p>
-          <p className="text-3xl font-bold mt-1">{stats.activeJobs}</p>
+        <div className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">활성 Job</p>
+          <p className="text-4xl font-bold text-gray-900 dark:text-white">{stats.activeJobs}</p>
         </div>
-        <div className="p-4 bg-gray-900 rounded-xl border border-gray-800">
-          <p className="text-sm text-gray-400">대기 결재</p>
-          <p className="text-3xl font-bold mt-1">{stats.pendingApprovals}</p>
+        <div className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">대기 결재</p>
+          <p className="text-4xl font-bold text-gray-900 dark:text-white">{stats.pendingApprovals}</p>
         </div>
-        <div className="p-4 bg-gray-900 rounded-xl border border-gray-800">
-          <p className="text-sm text-gray-400">오늘 LLM 비용</p>
-          <p className="text-3xl font-bold mt-1">${stats.todayCost.toFixed(4)}</p>
+        <div className="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">오늘 LLM 비용</p>
+          <p className="text-4xl font-bold text-gray-900 dark:text-white">${stats.todayCost.toFixed(4)}</p>
         </div>
       </div>
 
       {stats.recentWorkspaces.length > 0 && (
         <div>
-          <h2 className="text-sm font-medium text-gray-400 mb-3">최근 워크스페이스</h2>
-          <div className="space-y-2">
+          <h2 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">최근 워크스페이스</h2>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm divide-y divide-gray-200 dark:divide-gray-800">
             {stats.recentWorkspaces.map(ws => (
               <Link
                 key={ws.id}
                 href={`/workspaces/${ws.id}`}
-                className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors"
+                className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors first:rounded-t-lg last:rounded-b-lg"
               >
                 <div>
-                  <p className="text-sm font-medium text-white">{ws.name}</p>
-                  <p className="text-xs text-gray-500">{ws.channel_name ?? '채널 없음'}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{ws.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{ws.channel_name ?? '채널 없음'}</p>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  ws.status === 'active' ? 'bg-green-900/50 text-green-400' :
-                  ws.status === 'archived' ? 'bg-gray-800 text-gray-500' :
-                  'bg-yellow-900/50 text-yellow-400'
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  ws.status === 'active'
+                    ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                    : ws.status === 'archived'
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                    : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
                 }`}>{ws.status}</span>
               </Link>
             ))}

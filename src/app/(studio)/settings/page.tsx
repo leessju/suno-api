@@ -38,27 +38,27 @@ function TelegramTab() {
 
   return (
     <div className="space-y-6 max-w-lg">
-      <div className="p-4 bg-gray-900 rounded-xl border border-gray-800 space-y-2">
-        <p className="text-sm font-medium text-white">봇 토큰 설정</p>
-        <p className="text-xs text-gray-400">
-          서버 .env 파일에 <code className="text-blue-400">TELEGRAM_BOT_TOKEN</code>을 설정하세요.
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-5 space-y-2">
+        <p className="text-sm font-medium text-gray-900 dark:text-white">봇 토큰 설정</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          서버 .env 파일에 <code className="font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1 rounded">TELEGRAM_BOT_TOKEN</code>을 설정하세요.
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           봇 없으면: @BotFather에서 /newbot 명령으로 생성
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm text-gray-300 mb-2">내 Chat ID</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">내 Chat ID</label>
           <input
             type="text"
             value={chatId}
             onChange={e => setChatId(e.target.value)}
             placeholder="예: 123456789"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono text-sm"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             @userinfobot에게 메시지 보내면 Chat ID 확인 가능
           </p>
         </div>
@@ -66,23 +66,23 @@ function TelegramTab() {
         <div className="flex gap-3">
           <button
             onClick={handleSave}
-            className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex-1 py-2 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-md transition-colors"
           >
             {saved ? '저장됨 ✓' : '저장'}
           </button>
           <button
             onClick={handleTest}
             disabled={!chatId}
-            className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+            className="flex-1 py-2 px-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
             테스트 전송
           </button>
         </div>
       </div>
 
-      <div className="p-4 bg-gray-900 rounded-xl border border-gray-800">
-        <p className="text-sm font-medium text-white mb-2">지원 명령어</p>
-        <div className="space-y-1 font-mono text-xs text-gray-400">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-5">
+        <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">지원 명령어</p>
+        <div className="space-y-1 font-mono text-xs text-gray-500 dark:text-gray-400">
           <p>/new &lt;youtube_url&gt; — 새 작업 시작</p>
           <p>/list — 최근 워크스페이스 목록</p>
           <p>/status — 파이프라인 상태</p>
@@ -129,9 +129,9 @@ function MusicAnalysisPromptTab() {
   };
 
   return (
-    <div className="max-w-3xl bg-gray-900 rounded-xl border border-gray-800 p-6 space-y-4">
-      <h2 className="text-lg font-semibold text-white">음악 분석 시스템 프롬프트</h2>
-      <p className="text-gray-400 text-sm">
+    <div className="max-w-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-5 space-y-4">
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">음악 분석 시스템 프롬프트</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
         이 프롬프트는 채널에 관계없이 모든 음악 분석에 공통으로 사용됩니다.
       </p>
       <textarea
@@ -139,18 +139,18 @@ function MusicAnalysisPromptTab() {
         onChange={e => setValue(e.target.value)}
         rows={16}
         placeholder="음악 분석에 사용할 공통 시스템 프롬프트를 입력하세요..."
-        className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono text-sm resize-y"
+        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm font-mono resize-y"
       />
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          className="px-4 py-2 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-md transition-colors"
         >
           {saving ? '저장 중...' : saved ? '✓ 저장됨' : '저장'}
         </button>
-        <span className="text-gray-400 text-sm">{value.length} 자</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{value.length} 자</span>
       </div>
     </div>
   );
@@ -161,15 +161,15 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold text-white mb-6">설정</h1>
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">설정</h1>
 
-      <div className="flex gap-2 mb-6 border-b border-gray-800">
+      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-800">
         <button
           onClick={() => setActiveTab('telegram')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'telegram'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-gray-400 hover:text-gray-300'
+              ? 'border-b-2 border-brand text-brand'
+              : 'border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
           텔레그램 설정
@@ -178,8 +178,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('music-prompt')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'music-prompt'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-gray-400 hover:text-gray-300'
+              ? 'border-b-2 border-brand text-brand'
+              : 'border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
         >
           음악 분석 프롬프트

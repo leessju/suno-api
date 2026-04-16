@@ -1,17 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "./components/Header";
-import Footer from "./components/Footer";
-import { Analytics } from "@vercel/analytics/react"
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "suno api",
-  description: "Use API to call the music generation ai of suno.ai",
-  keywords: ["suno", "suno api", "suno.ai", "api", "music", "generation", "ai"],
-  creator: "@gcui.ai",
+  title: "Suno Studio",
+  description: "Suno AI 크리에이터 도구",
 };
 
 export default function RootLayout({
@@ -20,14 +16,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} overflow-y-scroll`} >
-        <Header />
-        <main className="flex flex-col items-center m-auto w-full">
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={inter.className}>
+        <ThemeProvider>
           {children}
-        </main>
-        <Footer />
-        <Analytics />
+        </ThemeProvider>
       </body>
     </html>
   );

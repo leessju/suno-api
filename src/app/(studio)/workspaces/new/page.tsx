@@ -47,117 +47,119 @@ export default function NewWorkspacePage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">새 작업 시작</h1>
-        <p className="text-gray-400 mt-1 text-sm">채널과 소스를 선택하고 파이프라인을 시작하세요</p>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">새 작업 시작</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">채널과 소스를 선택하고 파이프라인을 시작하세요</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-red-400 text-sm">
-            {error}
-          </div>
-        )}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-600 dark:text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
-        {/* 워크스페이스 이름 */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-2">워크스페이스 이름</label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="예: J-Pop Vol.5 2026-04"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        {/* 채널 선택 */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-2">YouTube 채널</label>
-          <ChannelSelector value={channelId} onChange={setChannelId} />
-        </div>
-
-        {/* 소스 타입 */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-2">입력 소스</label>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              ['youtube_video', 'YouTube URL'],
-              ['mp3_file', 'MP3 파일'],
-              ['album_list', '앨범 리스트'],
-            ] as [SourceType, string][]).map(([type, label]) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setSourceType(type)}
-                className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                  sourceType === type
-                    ? 'border-blue-500 bg-blue-900/30 text-white'
-                    : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 소스 참조 */}
-        {(sourceType === 'youtube_video' || sourceType === 'album_list') && (
+          {/* 워크스페이스 이름 */}
           <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              {sourceType === 'youtube_video' ? 'YouTube URL' : '앨범 리스트 (URL 또는 텍스트)'}
-            </label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">워크스페이스 이름</label>
             <input
               type="text"
-              value={sourceRef}
-              onChange={e => setSourceRef(e.target.value)}
-              placeholder={sourceType === 'youtube_video' ? 'https://youtu.be/...' : '앨범 URL 또는 키워드'}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="예: J-Pop Vol.5 2026-04"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm"
             />
           </div>
-        )}
 
-        {/* 파이프라인 모드 */}
-        <div>
-          <label className="block text-sm text-gray-300 mb-2">파이프라인 모드</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setPipelineMode('step')}
-              className={`p-4 rounded-xl border text-left transition-colors ${
-                pipelineMode === 'step'
-                  ? 'border-blue-500 bg-blue-900/30'
-                  : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-              }`}
-            >
-              <p className="font-medium text-sm text-white">단계별 (Step)</p>
-              <p className="text-xs text-gray-400 mt-1">각 단계에서 확인 후 진행</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPipelineMode('auto')}
-              className={`p-4 rounded-xl border text-left transition-colors ${
-                pipelineMode === 'auto'
-                  ? 'border-green-500 bg-green-900/30'
-                  : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-              }`}
-            >
-              <p className="font-medium text-sm text-white">원클릭 (Auto)</p>
-              <p className="text-xs text-gray-400 mt-1">YouTube 업로드까지 자동 완료</p>
-            </button>
+          {/* 채널 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">YouTube 채널</label>
+            <ChannelSelector value={channelId} onChange={setChannelId} />
           </div>
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading || !channelId}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
-        >
-          {loading ? '생성 중...' : '파이프라인 시작'}
-        </button>
-      </form>
+          {/* 소스 타입 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">입력 소스</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                ['youtube_video', 'YouTube URL'],
+                ['mp3_file', 'MP3 파일'],
+                ['album_list', '앨범 리스트'],
+              ] as [SourceType, string][]).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setSourceType(type)}
+                  className={`py-2 px-3 rounded-md border text-sm font-medium transition-colors ${
+                    sourceType === type
+                      ? 'border-brand bg-brand/10 text-gray-900 dark:text-white'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 소스 참조 */}
+          {(sourceType === 'youtube_video' || sourceType === 'album_list') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                {sourceType === 'youtube_video' ? 'YouTube URL' : '앨범 리스트 (URL 또는 텍스트)'}
+              </label>
+              <input
+                type="text"
+                value={sourceRef}
+                onChange={e => setSourceRef(e.target.value)}
+                placeholder={sourceType === 'youtube_video' ? 'https://youtu.be/...' : '앨범 URL 또는 키워드'}
+                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand text-sm"
+              />
+            </div>
+          )}
+
+          {/* 파이프라인 모드 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">파이프라인 모드</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPipelineMode('step')}
+                className={`p-4 rounded-lg border text-left transition-colors ${
+                  pipelineMode === 'step'
+                    ? 'border-brand bg-brand/10'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <p className="font-medium text-sm text-gray-900 dark:text-white">단계별 (Step)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">각 단계에서 확인 후 진행</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPipelineMode('auto')}
+                className={`p-4 rounded-lg border text-left transition-colors ${
+                  pipelineMode === 'auto'
+                    ? 'border-brand bg-brand/10'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <p className="font-medium text-sm text-gray-900 dark:text-white">원클릭 (Auto)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">YouTube 업로드까지 자동 완료</p>
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || !channelId}
+            className="w-full py-2.5 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white font-medium rounded-md transition-colors"
+          >
+            {loading ? '생성 중...' : '파이프라인 시작'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

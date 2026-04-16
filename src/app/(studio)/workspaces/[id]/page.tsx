@@ -15,20 +15,22 @@ export default async function WorkspacePage({ params }: { params: { id: string }
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{workspace.name}</h1>
-          <p className="text-gray-400 text-sm mt-1">{workspace.channel_name} · {workspace.pipeline_mode} 모드</p>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{workspace.name}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{workspace.channel_name} · {workspace.pipeline_mode} 모드</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-          workspace.status === 'active' ? 'bg-green-900/50 text-green-400' :
-          workspace.status === 'archived' ? 'bg-gray-800 text-gray-400' :
-          'bg-yellow-900/50 text-yellow-400'
+        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+          workspace.status === 'active'
+            ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+            : workspace.status === 'archived'
+            ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+            : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
         }`}>
           {workspace.status}
         </span>
       </div>
 
-      <div className="p-6 bg-gray-900 rounded-xl border border-gray-800">
-        <p className="text-gray-400 text-sm">파이프라인 구현 진행 중 (P2에서 완성)</p>
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm p-5">
+        <p className="text-sm text-gray-500 dark:text-gray-400">파이프라인 구현 진행 중 (P2에서 완성)</p>
       </div>
     </div>
   )
