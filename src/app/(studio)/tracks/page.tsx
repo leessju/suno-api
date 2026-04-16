@@ -54,7 +54,7 @@ export default async function TracksPage() {
           </div>
         ))}
         {tracks.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+          <div className="m-4 p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-400 dark:text-gray-500">
             트랙이 없습니다
           </div>
         )}

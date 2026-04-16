@@ -68,7 +68,7 @@ export default async function OpenClawPage() {
         </div>
       ) : (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
-          <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+          <div className="m-4 p-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-400 dark:text-gray-500">
             등록된 루프가 없습니다
             <p className="text-xs mt-1">DB에 openclaw_loops 행을 추가하면 표시됩니다</p>
           </div>

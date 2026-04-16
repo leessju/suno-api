@@ -85,7 +85,7 @@ export default async function QueuePage() {
           </div>
         ))}
         {jobs.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-400 dark:text-gray-500">
+          <div className="p-8 text-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400 dark:text-gray-500">
             Job이 없습니다
           </div>
         )}
