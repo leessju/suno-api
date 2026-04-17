@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 export default function TelegramSettingsPage() {
   const [botToken, setBotToken] = useState('')
@@ -60,28 +63,28 @@ export default function TelegramSettingsPage() {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <Label className="block text-sm font-medium text-foreground mb-1.5">
               봇 토큰 <span className="text-xs text-muted-foreground font-normal">(@BotFather에서 발급)</span>
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={botToken}
               onChange={e => setBotToken(e.target.value)}
               placeholder="1234567890:AAF..."
-              className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring font-mono"
+              className="font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">
+            <Label className="block text-sm font-medium text-foreground mb-1.5">
               Chat ID <span className="text-xs text-muted-foreground font-normal">(@userinfobot으로 확인)</span>
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={chatId}
               onChange={e => setChatId(e.target.value)}
               placeholder="-1001234567890"
-              className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring font-mono"
+              className="font-mono"
             />
           </div>
 
@@ -96,13 +99,13 @@ export default function TelegramSettingsPage() {
             <span className="text-sm text-foreground">알림 활성화</span>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={saving}
-            className="w-full py-2.5 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground font-medium rounded-md transition-opacity text-sm"
+            className="w-full"
           >
             {saving ? '저장 중...' : '저장'}
-          </button>
+          </Button>
         </form>
 
         <div className="mt-4 p-3 bg-accent rounded-md">

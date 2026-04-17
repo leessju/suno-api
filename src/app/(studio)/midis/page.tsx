@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { extractYoutubeVideoId, getMidiThumbnail } from '@/lib/youtube-utils'
 import { extractMp3Cover } from '@/lib/mp3-cover'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface Midi {
   id: string
@@ -110,23 +114,24 @@ function AddMidiModal({
       <div className="bg-background rounded-xl shadow-xl w-full max-w-md mx-4 p-6 flex flex-col" style={{ height: '600px' }}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-base font-semibold text-foreground">새 MIDI 추가</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
+          <Button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</Button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {/* 워크스페이스 선택 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">워크스페이스</label>
-            <select
-              value={workspaceId}
-              onChange={e => setWorkspaceId(e.target.value)}
-              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {workspaces.map(ws => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </select>
+            <Label className="block text-xs font-medium text-foreground mb-1">워크스페이스</Label>
+            <Select value={workspaceId} onValueChange={setWorkspaceId}>
+              <SelectTrigger className="w-full border border-input rounded-lg text-sm bg-background text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map(ws => (
+                  <SelectItem key={ws.id} value={ws.id}>{ws.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 소스 타입 */}
@@ -156,8 +161,8 @@ function AddMidiModal({
           <div>
             {sourceType === 'youtube_video' ? (
               <>
-                <label className="block text-xs font-medium text-foreground mb-1">YouTube URL</label>
-                <input
+                <Label className="block text-xs font-medium text-foreground mb-1">YouTube URL</Label>
+                <Input
                   type="text"
                   value={sourceRef}
                   onChange={e => handleYoutubeUrlChange(e.target.value)}
@@ -193,7 +198,7 @@ function AddMidiModal({
               </>
             ) : (
               <>
-                <label className="block text-xs font-medium text-foreground mb-1">MP3 파일</label>
+                <Label className="block text-xs font-medium text-foreground mb-1">MP3 파일</Label>
                 <input
                   type="file"
                   accept="audio/mp3,audio/mpeg,.mp3"
@@ -218,8 +223,8 @@ function AddMidiModal({
 
           {/* 라벨 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">라벨 (선택)</label>
-            <input
+            <Label className="block text-xs font-medium text-foreground mb-1">라벨 (선택)</Label>
+            <Input
               type="text"
               value={label}
               onChange={e => setLabel(e.target.value)}
@@ -233,16 +238,16 @@ function AddMidiModal({
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4 flex-shrink-0">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground text-sm rounded-lg transition-colors">
+            <Button type="button" onClick={onClose} className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground text-sm rounded-lg transition-colors">
               취소
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={submitting || !sourceRef.trim() || (sourceType === 'youtube_video' && ytStatus !== 'valid') || ytStatus === 'checking'}
               className="px-4 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-opacity"
             >
               {submitting ? '저장 중...' : '저장'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -274,7 +279,7 @@ function WorkspaceCombobox({
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 border border-input rounded-md px-2.5 py-1.5 text-sm bg-background text-foreground hover:border-ring/50 focus:outline-none focus:ring-1 focus:ring-ring transition-colors min-w-[140px] max-w-[220px]"
@@ -283,22 +288,22 @@ function WorkspaceCombobox({
         <svg className={`w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute left-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[180px] max-h-72 overflow-y-auto">
-          <button
+          <Button
             type="button"
             onClick={() => { onChange(''); setOpen(false) }}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors ${!value ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
           >
             <span className="flex-1 text-left">전체</span>
             {!value && <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-          </button>
+          </Button>
           {workspaces.map(ws => {
             const isSelected = ws.id === value
             return (
-              <button
+              <Button
                 key={ws.id}
                 type="button"
                 onClick={() => { onChange(ws.id); setOpen(false) }}
@@ -306,7 +311,7 @@ function WorkspaceCombobox({
               >
                 <span className="flex-1 text-left truncate">{ws.name}</span>
                 {isSelected && <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -369,12 +374,12 @@ export default function MidisPage() {
           <h1 className="text-xl font-semibold text-foreground">미디파일</h1>
           <p className="text-sm text-muted-foreground mt-1">전체 워크스페이스의 MIDI 파일 목록</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowAdd(true)}
           className="px-4 py-2 rounded-lg text-sm font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity w-full sm:w-auto"
         >
           MIDI 추가
-        </button>
+        </Button>
       </div>
 
       {showAdd && workspaces.length > 0 && (

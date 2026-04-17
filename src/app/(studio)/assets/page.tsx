@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useChannel } from '@/components/ChannelProvider'
+import { Button } from '@/components/ui/button'
 
 interface BackImage {
   id: number
@@ -115,19 +116,19 @@ function ImageSection({ title, description, channelId, imageType, aspectClass }:
               </div>
               <div className="p-1.5 flex gap-1">
                 {img.is_cover !== 1 && (
-                  <button
+                  <Button
                     onClick={() => handleSetCover(img.id)}
                     className="flex-1 px-1.5 py-1 text-[10px] bg-background border border-border hover:border-foreground/40 text-foreground rounded transition-colors"
                   >
                     커버
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
                   onClick={() => handleDelete(img.id)}
                   className="px-1.5 py-1 text-[10px] bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded transition-colors"
                 >
                   삭제
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -152,7 +153,7 @@ export default function AssetsPage() {
 
       <div className="flex gap-0 border-b border-border">
         {tabs.map(tab => (
-          <button
+          <Button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -162,7 +163,7 @@ export default function AssetsPage() {
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 

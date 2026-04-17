@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 interface Content {
   id: number
@@ -109,13 +110,13 @@ export default function VariantsPage({ params }: { params: { id: string } }) {
           <h1 className="text-xl font-bold">Variants 선택</h1>
           <p className="text-muted-foreground text-sm mt-1">생성할 곡의 스타일을 선택하세요</p>
         </div>
-        <button
+        <Button
           onClick={generateVariants}
           disabled={generating}
           className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-colors w-full sm:w-auto"
         >
           {generating ? '생성 중...' : 'Gemini로 생성'}
-        </button>
+        </Button>
       </div>
 
       {midiId && (
@@ -166,12 +167,12 @@ export default function VariantsPage({ params }: { params: { id: string } }) {
 
       {selected.size > 0 && (
         <div className="fixed bottom-6 right-6">
-          <button
+          <Button
             onClick={proceedToGeneration}
             className="px-6 py-3 bg-green-600 hover:bg-green-500 text-primary-foreground font-medium rounded-xl shadow-lg transition-colors"
           >
             {selected.size}개 선택 → Suno 생성 시작
-          </button>
+          </Button>
         </div>
       )}
     </div>

@@ -52,3 +52,9 @@ ccpm/
 .claude/
 install-ccpm.sh
 CLAUDE.md
+tmp/
+
+# OMC 상태 파일 및 DB WAL/SHM (로컬 전용)
+.omc/
+data/*.db-shm
+data/*.db-wal

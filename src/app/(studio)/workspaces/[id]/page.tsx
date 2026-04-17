@@ -5,6 +5,9 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getMidiThumbnail, extractYoutubeVideoId } from '@/lib/youtube-utils'
 import { extractMp3Cover } from '@/lib/mp3-cover'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface WorkspaceMidi {
   id: string
@@ -275,15 +278,15 @@ export default function WorkspaceHubPage() {
         <div>
           {editingName ? (
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 autoFocus
                 value={editNameVal}
                 onChange={e => setEditNameVal(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
                 className="text-xl font-semibold bg-background border border-input rounded px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <button onClick={handleSaveName} disabled={savingName} className="text-xs text-primary hover:opacity-80 disabled:opacity-50">저장</button>
-              <button onClick={() => setEditingName(false)} className="text-xs text-muted-foreground hover:text-foreground">취소</button>
+              <Button onClick={handleSaveName} disabled={savingName} className="text-xs text-primary hover:opacity-80 disabled:opacity-50">저장</Button>
+              <Button onClick={() => setEditingName(false)} className="text-xs text-muted-foreground hover:text-foreground">취소</Button>
             </div>
           ) : (
             <h1
@@ -312,12 +315,12 @@ export default function WorkspaceHubPage() {
           </div>
         </div>
         {!showAddMidi && (
-          <button
+          <Button
             onClick={() => setShowAddMidi(true)}
             className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
           >
             + MIDI 추가
-          </button>
+          </Button>
         )}
       </div>
 
@@ -328,13 +331,13 @@ export default function WorkspaceHubPage() {
           <form onSubmit={handleAddMidi} className="space-y-4">
             {/* 소스 타입 */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-2">소스 타입</label>
+              <Label className="block text-xs font-medium text-foreground mb-2">소스 타입</Label>
               <div className="flex gap-6">
                 {([
                   { value: 'youtube_video', label: 'YouTube' },
                   { value: 'mp3_file', label: 'MP3 파일' },
                 ] as const).map(opt => (
-                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <Label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="source_type"
@@ -344,7 +347,7 @@ export default function WorkspaceHubPage() {
                       className="accent-primary w-3.5 h-3.5"
                     />
                     <span className="text-sm text-foreground">{opt.label}</span>
-                  </label>
+                  </Label>
                 ))}
               </div>
             </div>
@@ -353,8 +356,8 @@ export default function WorkspaceHubPage() {
             <div>
               {sourceType === 'youtube_video' ? (
                 <>
-                  <label className="block text-xs font-medium text-foreground mb-1">YouTube URL</label>
-                  <input
+                  <Label className="block text-xs font-medium text-foreground mb-1">YouTube URL</Label>
+                  <Input
                     type="text"
                     value={sourceRef}
                     onChange={e => handleYoutubeUrlChange(e.target.value)}
@@ -389,8 +392,8 @@ export default function WorkspaceHubPage() {
                 </>
               ) : (
                 <>
-                  <label className="block text-xs font-medium text-foreground mb-1">MP3 파일</label>
-                  <input
+                  <Label className="block text-xs font-medium text-foreground mb-1">MP3 파일</Label>
+                  <Input
                     type="file"
                     accept="audio/mp3,audio/mpeg,.mp3"
                     onChange={async e => {
@@ -412,8 +415,8 @@ export default function WorkspaceHubPage() {
 
             {/* 라벨 */}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">라벨 (선택)</label>
-              <input
+              <Label className="block text-xs font-medium text-foreground mb-1">라벨 (선택)</Label>
+              <Input
                 type="text"
                 value={label}
                 onChange={e => setLabel(e.target.value)}
@@ -425,16 +428,16 @@ export default function WorkspaceHubPage() {
             {addError && <p className="text-sm text-red-500">{addError}</p>}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button type="button" onClick={handleCancelAdd} className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground text-sm rounded-lg transition-colors">
+              <Button type="button" onClick={handleCancelAdd} className="px-4 py-2 bg-accent hover:bg-accent/80 text-foreground text-sm rounded-lg transition-colors">
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 disabled={addingMidi || uploading || !sourceRef.trim() || (sourceType === 'youtube_video' && ytStatus !== 'valid') || ytStatus === 'checking'}
                 className="px-4 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-opacity"
               >
                 {uploading ? '업로드 중...' : addingMidi ? '저장 중...' : '저장'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -444,12 +447,12 @@ export default function WorkspaceHubPage() {
       {!showAddMidi && midis.length === 0 && (
         <div className="bg-background border border-dashed border-border rounded-lg p-10 text-center">
           <p className="text-sm text-muted-foreground mb-3">아직 MIDI가 없습니다.</p>
-          <button
+          <Button
             onClick={() => setShowAddMidi(true)}
             className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
           >
             첫 MIDI 추가
-          </button>
+          </Button>
         </div>
       )}
       {!showAddMidi && midis.length > 0 && (

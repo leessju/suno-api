@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 interface TrackImage {
   id: string
@@ -98,14 +100,14 @@ export default function ImagesPage({ params }: { params: { id: string } }) {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button
+          <Button
             onClick={() => router.push(`/workspaces/${params.id}`)}
             className="text-muted-foreground hover:text-primary-foreground transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-          </button>
+          </Button>
           <div>
             <h1 className="text-xl font-bold text-primary-foreground">이미지 연결</h1>
             <p className="text-sm text-muted-foreground mt-0.5">각 트랙에 배경 이미지를 배정하세요</p>
@@ -207,17 +209,17 @@ export default function ImagesPage({ params }: { params: { id: string } }) {
           <div className="w-full sm:w-[480px] bg-background rounded-t-2xl sm:rounded-2xl border border-input p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-primary-foreground">이미지 추가 · {drawer.title}</h2>
-              <button onClick={() => setDrawer(null)} className="text-muted-foreground hover:text-primary-foreground">
+              <Button onClick={() => setDrawer(null)} className="text-muted-foreground hover:text-primary-foreground">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
+              </Button>
             </div>
 
             {/* 탭 */}
             <div className="flex gap-1 bg-background rounded-lg p-1">
               {(['upload', 'url'] as DrawerTab[]).map(tab => (
-                <button
+                <Button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${
@@ -225,7 +227,7 @@ export default function ImagesPage({ params }: { params: { id: string } }) {
                   }`}
                 >
                   {tab === 'upload' ? '파일 업로드' : 'URL 입력'}
-                </button>
+                </Button>
               ))}
             </div>
 
@@ -241,32 +243,32 @@ export default function ImagesPage({ params }: { params: { id: string } }) {
                     if (file) handleFileUpload(drawer.trackId, file)
                   }}
                 />
-                <button
+                <Button
                   onClick={() => fileRef.current?.click()}
                   disabled={submitting}
                   className="w-full py-10 border-2 border-dashed border-input rounded-xl text-muted-foreground hover:border-border hover:text-primary-foreground transition-colors disabled:opacity-50"
                 >
                   {submitting ? '업로드 중...' : '클릭하여 이미지 선택'}
-                </button>
+                </Button>
               </div>
             )}
 
             {activeTab === 'url' && (
               <div className="space-y-3">
-                <input
+                <Input
                   type="url"
                   value={urlInput}
                   onChange={e => setUrlInput(e.target.value)}
                   placeholder="https://..."
                   className="w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-primary-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring"
                 />
-                <button
+                <Button
                   onClick={() => urlInput && assignUrl(drawer.trackId, urlInput)}
                   disabled={!urlInput || submitting}
                   className="w-full py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-colors"
                 >
                   {submitting ? '저장 중...' : '저장'}
-                </button>
+                </Button>
               </div>
             )}
           </div>

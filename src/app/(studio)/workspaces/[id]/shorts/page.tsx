@@ -2,6 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 
 interface ShortTrack {
   suno_track_id: string
@@ -149,7 +153,7 @@ function TrackAccordion({
   return (
     <div className="bg-background border border-border rounded-xl overflow-hidden">
       {/* 아코디언 헤더 */}
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-accent dark:hover:bg-accent transition-colors"
@@ -169,7 +173,7 @@ function TrackAccordion({
           </span>
         </div>
         <StatusBadge status={track.upload_status} />
-      </button>
+      </Button>
 
       {/* 아코디언 패널 */}
       {open && (
@@ -187,8 +191,8 @@ function TrackAccordion({
 
           {/* 제목 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">제목</label>
-            <input
+            <Label className="block text-xs font-medium text-foreground mb-1">제목</Label>
+            <Input
               type="text"
               value={title}
               onChange={e => { setTitle(e.target.value); setSaveOk(false) }}
@@ -199,8 +203,8 @@ function TrackAccordion({
 
           {/* 설명 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">설명</label>
-            <textarea
+            <Label className="block text-xs font-medium text-foreground mb-1">설명</Label>
+            <Textarea
               value={description}
               onChange={e => { setDescription(e.target.value); setSaveOk(false) }}
               rows={3}
@@ -211,10 +215,10 @@ function TrackAccordion({
 
           {/* 해시태그 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">
+            <Label className="block text-xs font-medium text-foreground mb-1">
               해시태그 <span className="text-muted-foreground font-normal">(쉼표로 구분)</span>
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={hashtags}
               onChange={e => { setHashtags(e.target.value); setSaveOk(false) }}
@@ -225,8 +229,8 @@ function TrackAccordion({
 
           {/* 고정 댓글 */}
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1">고정 댓글</label>
-            <textarea
+            <Label className="block text-xs font-medium text-foreground mb-1">고정 댓글</Label>
+            <Textarea
               value={pinnedComment}
               onChange={e => { setPinnedComment(e.target.value); setSaveOk(false) }}
               rows={2}
@@ -237,22 +241,22 @@ function TrackAccordion({
 
           {/* 버튼 */}
           <div className="flex gap-2 flex-wrap">
-            <button
+            <Button
               onClick={save}
               disabled={saving}
               className="px-4 py-1.5 bg-primary hover:bg-primary disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-md transition-colors"
             >
               {saving ? '저장 중...' : '저장'}
-            </button>
+            </Button>
             {canUpload && (
-              <button
+              <Button
                 onClick={requestUpload}
                 disabled={uploading || !track.shorts_id}
                 title={!track.shorts_id ? '먼저 저장하세요' : undefined}
                 className="px-4 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-md transition-colors"
               >
                 {uploading ? '요청 중...' : track.upload_status === 'failed' ? '재시도' : '이 트랙 업로드'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -313,13 +317,13 @@ export default function ShortsPage({ params }: { params: { id: string } }) {
           </div>
         </div>
         {pendingTracks.length > 0 && (
-          <button
+          <Button
             onClick={bulkUpload}
             disabled={bulkUploading}
             className="w-full sm:w-auto sm:flex-shrink-0 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-lg transition-colors"
           >
             {bulkUploading ? '업로드 중...' : `전체 업로드 (${pendingTracks.length})`}
-          </button>
+          </Button>
         )}
       </div>
 

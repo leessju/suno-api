@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 export default function ProfilePage() {
   const [name, setName] = useState('')
@@ -117,23 +120,25 @@ export default function ProfilePage() {
           <div className="space-y-1.5">
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="px-3 py-1.5 text-sm border border-input rounded-md hover:bg-accent text-foreground disabled:opacity-50 transition-colors"
               >
                 {uploading ? '업로드 중...' : '사진 변경'}
-              </button>
+              </Button>
               {avatarKey && (
-                <button
+                <Button
                   type="button"
+                  variant="destructive"
+                  size="sm"
                   onClick={handleDeleteAvatar}
                   disabled={deleting}
-                  className="px-3 py-1.5 text-sm border border-border rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
                 >
                   {deleting ? '삭제 중...' : '삭제'}
-                </button>
+                </Button>
               )}
             </div>
             <p className="text-xs text-muted-foreground">JPG, PNG, WebP (최대 5MB)</p>
@@ -142,30 +147,28 @@ export default function ProfilePage() {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">이름</label>
-            <input
+            <Label className="block text-sm font-medium text-foreground mb-1.5">이름</Label>
+            <Input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-foreground"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">이메일</label>
-            <input
+            <Label className="block text-sm font-medium text-foreground mb-1.5">이메일</Label>
+            <Input
               type="email"
               value={email}
               disabled
-              className="w-full px-3 py-2 bg-accent/50 border border-border rounded-md text-muted-foreground text-sm cursor-not-allowed"
             />
           </div>
-          <button
+          <Button
             type="submit"
             disabled={saving}
-            className="w-full py-2.5 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground font-medium rounded-md transition-colors text-sm"
+            className="w-full"
           >
             {saving ? '저장 중...' : '저장'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

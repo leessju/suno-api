@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface DraftSong {
   id: string
@@ -109,34 +110,36 @@ export default function TracksPage() {
 
       {/* 필터 */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-        <select
-          value={workspaceId}
-          onChange={e => setWorkspaceId(e.target.value)}
-          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground w-full sm:w-auto"
-        >
-          <option value="">워크스페이스 선택</option>
-          {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
+        <Select value={workspaceId} onValueChange={setWorkspaceId}>
+          <SelectTrigger className="h-8 text-sm w-full sm:w-auto min-w-[160px]">
+            <SelectValue placeholder="워크스페이스 선택" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">워크스페이스 선택</SelectItem>
+            {workspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={midiId}
-          onChange={e => setMidiId(e.target.value)}
-          disabled={!workspaceId}
-          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground w-full sm:w-auto disabled:opacity-50"
-        >
-          <option value="">전체 MIDI</option>
-          {midis.map(m => <option key={m.id} value={m.id}>{m.label ?? m.id.slice(0, 8)}</option>)}
-        </select>
+        <Select value={midiId} onValueChange={setMidiId} disabled={!workspaceId}>
+          <SelectTrigger className="h-8 text-sm w-full sm:w-auto min-w-[140px]">
+            <SelectValue placeholder="전체 MIDI" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">전체 MIDI</SelectItem>
+            {midis.map(m => <SelectItem key={m.id} value={m.id}>{m.label ?? m.id.slice(0, 8)}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={confirmed}
-          onChange={e => setConfirmed(e.target.value)}
-          className="h-8 px-2 text-sm rounded-md border border-border bg-background text-foreground w-full sm:w-auto"
-        >
-          <option value="">전체</option>
-          <option value="1">확정만</option>
-          <option value="0">미확정만</option>
-        </select>
+        <Select value={confirmed} onValueChange={setConfirmed}>
+          <SelectTrigger className="h-8 text-sm w-full sm:w-auto min-w-[120px]">
+            <SelectValue placeholder="전체" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">전체</SelectItem>
+            <SelectItem value="1">확정만</SelectItem>
+            <SelectItem value="0">미확정만</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* 목록 */}

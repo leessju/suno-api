@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/lib/auth-client'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type UserRow = {
   id: string
@@ -117,15 +118,19 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      <select
+                      <Select
                         value={u.role}
                         disabled={isSelf || updating === u.id}
-                        onChange={e => handleRoleChange(u.id, e.target.value)}
-                        className="px-2 py-1 bg-background border border-input rounded text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                        onValueChange={role => handleRoleChange(u.id, role)}
                       >
-                        <option value="common">일반</option>
-                        <option value="admin">관리자</option>
-                      </select>
+                        <SelectTrigger className="px-2 py-1 bg-background border border-input rounded text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed w-auto h-auto">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="common">일반</SelectItem>
+                          <SelectItem value="admin">관리자</SelectItem>
+                        </SelectContent>
+                      </Select>
                       {isSelf && (
                         <span className="ml-2 text-xs text-muted-foreground">본인</span>
                       )}

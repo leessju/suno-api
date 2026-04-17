@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Suspense, useState } from 'react'
 import { WorkspaceTree } from './WorkspaceTree'
 import { useSideNav } from './SideNavProvider'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 interface Section {
   id: string
@@ -79,9 +80,9 @@ const navItemInactive = "text-muted-foreground hover:text-foreground hover:bg-ac
 const iconItemActive = "bg-accent text-foreground"
 const iconItemInactive = "text-muted-foreground hover:bg-accent hover:text-foreground"
 
-function SideNavContent({ email, onNavigate }: { email: string; onNavigate?: () => void }) {
+function SideNavContent({ email }: { email: string }) {
   const pathname = usePathname()
-  const { collapsed, toggleCollapsed } = useSideNav()
+  const { collapsed, toggleCollapsed, mobileOpen, closeMobile } = useSideNav()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     channel: true,
     workspace: true,
@@ -118,144 +119,200 @@ function SideNavContent({ email, onNavigate }: { email: string; onNavigate?: () 
     tracks: '/tracks', renders: '/renders', uploads: '/uploads', assets: '/assets', pipeline: '/pipeline',
   }
 
-  // ── 접힘 모드 (데스크톱 전용) ──
+  // ── 사이드바 메뉴 콘텐츠 (데스크탑 + 모바일 Sheet 공용) ──
+  function SidebarMenuContent() {
+    return (
+      <>
+        <div className="p-3 border-b border-border flex items-center gap-2">
+          <Link href="/generate"
+            className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
+            노래 만들기
+          </Link>
+        </div>
+
+        <div className="flex-1 overflow-y-auto min-h-0 py-2">
+          {sections.map(section => (
+            <div key={section.id}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {section.icon}
+                  {section.label}
+                </span>
+                <span className="text-muted-foreground">
+                  <ChevronIcon open={openSections[section.id] ?? false} />
+                </span>
+              </button>
+
+              {(openSections[section.id] ?? false) && (
+                <div>
+                  {section.custom ? (
+                    <div className="pl-2">{section.custom}</div>
+                  ) : (
+                    section.items.map(item => (
+                      <Link key={item.href} href={item.href}
+                        className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
+                          isActive(item.href)
+                            ? 'bg-accent text-foreground border-l-2 border-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                        }`}>
+                        {item.label}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-border py-2">
+          <Link href="/settings"
+            className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
+            <SettingsIcon />
+            설정
+          </Link>
+          <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
+        </div>
+      </>
+    )
+  }
+
+  // ── 접힘 모드 ──
   if (collapsed) {
     return (
-      <aside className="w-12 flex-shrink-0 bg-background border-r border-border flex flex-col h-full transition-all duration-200">
-        <div className="flex items-center justify-center h-12 border-b border-border">
-          <button onClick={toggleCollapsed} title="메뉴 펼치기"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+      <>
+        {/* 모바일 Sheet */}
+        <Sheet open={mobileOpen} onOpenChange={closeMobile}>
+          <SheetContent side="left" className="w-64 p-0 bg-background border-r border-border" aria-label="사이드 메뉴">
+            <SheetTitle className="sr-only">사이드 메뉴</SheetTitle>
+            <div className="flex flex-col h-full">
+              <SidebarMenuContent />
+            </div>
+          </SheetContent>
+        </Sheet>
 
-        <div className="flex justify-center py-2 border-b border-border">
-          <Link href="/generate" title="노래 만들기"
-            className="w-8 h-8 rounded-lg flex items-center justify-center bg-foreground text-background text-sm hover:opacity-80 transition-opacity">
-            ♪
-          </Link>
-        </div>
+        <aside className="hidden md:flex w-12 flex-shrink-0 bg-background border-r border-border flex-col h-full transition-all duration-200">
+          <div className="flex items-center justify-center h-12 border-b border-border">
+            <button onClick={toggleCollapsed} title="메뉴 펼치기"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 py-2 flex flex-col items-center gap-1">
-          {sections.map(section => {
-            const href = sectionHref[section.id] ?? '/'
-            const active = isActive(href)
-            return (
-              <Link key={section.id} href={href} title={section.label}
-                className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${active ? iconItemActive : iconItemInactive}`}>
-                {section.icon}
-              </Link>
-            )
-          })}
-        </div>
+          <div className="flex justify-center py-2 border-b border-border">
+            <Link href="/generate" title="노래 만들기"
+              className="w-8 h-8 rounded-lg flex items-center justify-center bg-foreground text-background text-sm hover:opacity-80 transition-opacity">
+              ♪
+            </Link>
+          </div>
 
-        <div className="border-t border-border py-2 flex flex-col items-center gap-1">
-          <Link href="/settings" title="설정"
-            className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${isActive('/settings') ? iconItemActive : iconItemInactive}`}>
-            <SettingsIcon />
-          </Link>
-        </div>
-      </aside>
+          <div className="flex-1 overflow-y-auto min-h-0 py-2 flex flex-col items-center gap-1">
+            {sections.map(section => {
+              const href = sectionHref[section.id] ?? '/'
+              const active = isActive(href)
+              return (
+                <Link key={section.id} href={href} title={section.label}
+                  className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${active ? iconItemActive : iconItemInactive}`}>
+                  {section.icon}
+                </Link>
+              )
+            })}
+          </div>
+
+          <div className="border-t border-border py-2 flex flex-col items-center gap-1">
+            <Link href="/settings" title="설정"
+              className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${isActive('/settings') ? iconItemActive : iconItemInactive}`}>
+              <SettingsIcon />
+            </Link>
+          </div>
+        </aside>
+      </>
     )
   }
 
   // ── 펼침 모드 ──
   return (
-    <aside className="w-64 flex-shrink-0 bg-background border-r border-border flex flex-col h-full transition-all duration-200">
-      <div className="p-3 border-b border-border flex items-center gap-2">
-        <Link href="/generate" onClick={onNavigate}
-          className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
-          노래 만들기
-        </Link>
-        <button onClick={toggleCollapsed} title="메뉴 접기"
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0 hidden md:flex">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0 py-2">
-        {sections.map(section => (
-          <div key={section.id}>
-            <button
-              onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
-            >
-              <span className="flex items-center gap-2 text-muted-foreground">
-                {section.icon}
-                {section.label}
-              </span>
-              <span className="text-muted-foreground">
-                <ChevronIcon open={openSections[section.id] ?? false} />
-              </span>
-            </button>
-
-            {(openSections[section.id] ?? false) && (
-              <div>
-                {section.custom ? (
-                  <div className="pl-2" onClick={onNavigate}>{section.custom}</div>
-                ) : (
-                  section.items.map(item => (
-                    <Link key={item.href} href={item.href} onClick={onNavigate}
-                      className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
-                        isActive(item.href)
-                          ? 'bg-accent text-foreground border-l-2 border-foreground'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                      }`}>
-                      {item.label}
-                    </Link>
-                  ))
-                )}
-              </div>
-            )}
+    <>
+      {/* 모바일 Sheet */}
+      <Sheet open={mobileOpen} onOpenChange={closeMobile}>
+        <SheetContent side="left" className="w-64 p-0 bg-background border-r border-border" aria-label="사이드 메뉴">
+          <div className="flex flex-col h-full">
+            <SidebarMenuContent />
           </div>
-        ))}
-      </div>
+        </SheetContent>
+      </Sheet>
 
-      <div className="border-t border-border py-2">
-        <Link href="/settings" onClick={onNavigate}
-          className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
-          <SettingsIcon />
-          설정
-        </Link>
-        <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
-      </div>
-    </aside>
+      {/* 데스크탑 사이드바 */}
+      <aside className="hidden md:flex w-64 flex-shrink-0 bg-background border-r border-border flex-col h-full transition-all duration-200">
+        <div className="p-3 border-b border-border flex items-center gap-2">
+          <Link href="/generate"
+            className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
+            노래 만들기
+          </Link>
+          <button onClick={toggleCollapsed} title="메뉴 접기"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto min-h-0 py-2">
+          {sections.map(section => (
+            <div key={section.id}>
+              <button
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {section.icon}
+                  {section.label}
+                </span>
+                <span className="text-muted-foreground">
+                  <ChevronIcon open={openSections[section.id] ?? false} />
+                </span>
+              </button>
+
+              {(openSections[section.id] ?? false) && (
+                <div>
+                  {section.custom ? (
+                    <div className="pl-2">{section.custom}</div>
+                  ) : (
+                    section.items.map(item => (
+                      <Link key={item.href} href={item.href}
+                        className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
+                          isActive(item.href)
+                            ? 'bg-accent text-foreground border-l-2 border-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                        }`}>
+                        {item.label}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-border py-2">
+          <Link href="/settings"
+            className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
+            <SettingsIcon />
+            설정
+          </Link>
+          <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
+        </div>
+      </aside>
+    </>
   )
 }
 
 export function SideNav({ email }: { email: string }) {
-  const { mobileOpen, closeMobile } = useSideNav()
-
-  return (
-    <>
-      {/* 모바일 오버레이 */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={closeMobile}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* 모바일: 오프캔버스 드로어 */}
-      <div
-        className={`
-          fixed inset-y-0 left-0 z-50 md:hidden
-          transition-transform duration-300 ease-in-out
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        <SideNavContent email={email} onNavigate={closeMobile} />
-      </div>
-
-      {/* 데스크톱: 기존 고정 사이드바 */}
-      <div className="hidden md:flex md:flex-shrink-0 h-full">
-        <SideNavContent email={email} />
-      </div>
-    </>
-  )
+  return <SideNavContent email={email} />
 }

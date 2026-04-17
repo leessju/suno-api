@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/music-gen/db'
 import { notFound } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
 interface Vote {
   id: number
@@ -127,15 +128,15 @@ export default async function ApprovalBoardPage({ params }: { params: Promise<{ 
         <div className="flex gap-3">
           <form action={`/api/music-gen/approvals/${id}/vote`} method="POST">
             <input type="hidden" name="verdict" value="approve" />
-            <button type="submit" className="px-4 py-2 bg-green-600 hover:bg-green-500 text-primary-foreground text-sm font-medium rounded-md transition-colors">
+            <Button type="submit" className="px-4 py-2 bg-green-600 hover:bg-green-500 text-primary-foreground text-sm font-medium rounded-md transition-colors">
               승인 Override
-            </button>
+            </Button>
           </form>
           <form action={`/api/music-gen/approvals/${id}/vote`} method="POST">
             <input type="hidden" name="verdict" value="reject" />
-            <button type="submit" className="px-4 py-2 bg-red-600 hover:bg-red-500 text-primary-foreground text-sm font-medium rounded-md transition-colors">
+            <Button type="submit" className="px-4 py-2 bg-red-600 hover:bg-red-500 text-primary-foreground text-sm font-medium rounded-md transition-colors">
               거절 Override
-            </button>
+            </Button>
           </form>
         </div>
       )}

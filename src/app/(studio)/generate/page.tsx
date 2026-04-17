@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 interface MidiFile {
   id: string
@@ -223,22 +225,22 @@ export default function GeneratePage() {
               </button>
             ))}
             {countOption === 'custom' && (
-              <input
+              <Input
                 type="number" min={1} max={20} value={customCount}
                 onChange={e => setCustomCount(Math.min(20, Math.max(1, Number(e.target.value))))}
-                className="w-full sm:w-20 h-9 px-3 text-sm rounded-lg border border-border bg-background text-foreground text-center"
+                className="w-20 text-center"
               />
             )}
           </div>
         </div>
 
-        <button
+        <Button
           onClick={handleGenerate}
           disabled={generating || !channelId}
-          className="w-full py-2.5 text-sm font-semibold text-primary-foreground rounded-lg transition-opacity disabled:opacity-50 hover:opacity-90 bg-primary"
+          className="w-full"
         >
           {generating ? '생성 중...' : `${count}곡 생성 시작`}
-        </button>
+        </Button>
       </div>
 
       {/* 결과 리스트 */}
@@ -247,12 +249,12 @@ export default function GeneratePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 className="text-base font-semibold text-foreground">생성 결과 ({contents.length}곡)</h2>
             {mode === 'manual' && selected.size > 0 && (
-              <button
+              <Button
+                size="sm"
                 onClick={() => { selected.forEach(id => generateSuno(id)) }}
-                className="px-4 py-1.5 text-sm font-medium text-primary-foreground rounded-lg bg-green-600 hover:bg-green-500 w-full sm:w-auto"
               >
                 {selected.size}곡 Suno 생성
-              </button>
+              </Button>
             )}
           </div>
 
@@ -277,23 +279,25 @@ export default function GeneratePage() {
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {mode === 'manual' && !c._generated && !c._generating && (
-                    <button
+                    <Button
+                      size="sm"
                       onClick={() => generateSuno(c.id)}
-                      className="px-3 py-1 text-xs font-medium rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+                      className="text-xs px-3 py-1 h-auto"
                     >
                       Suno 생성
-                    </button>
+                    </Button>
                   )}
                   {c._generating && (
                     <span className="text-xs text-muted-foreground animate-pulse">생성 중...</span>
                   )}
                   {c.audio_url && (
-                    <button
+                    <Button
+                      size="sm"
                       onClick={() => downloadAudio(c.audio_url!, c.title_jp)}
-                      className="px-3 py-1 text-xs font-medium rounded-lg bg-green-600 hover:bg-green-500 text-primary-foreground"
+                      className="text-xs px-3 py-1 h-auto"
                     >
                       다운로드
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>

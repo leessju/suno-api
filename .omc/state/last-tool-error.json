@@ -1,7 +1,0 @@
-{
-  "tool_name": "TeamCreate",
-  "tool_input_preview": "{\"team_name\":\"nextjs16-migration\",\"description\":\"Next.js 14→16 + React 18→19 마이그레이션 검증 및 수정\"}",
-  "error": "Already leading team \"musix-gen-features\". A leader can only manage one team at a time. Use TeamDelete to end the current team before creating a new one.",
-  "timestamp": "2026-04-16T08:21:55.098Z",
-  "retry_count": 2
-}

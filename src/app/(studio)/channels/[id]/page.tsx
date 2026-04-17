@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChannel } from '@/components/ChannelProvider';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Channel {
   id: number;
@@ -199,7 +201,7 @@ export default function ChannelDetailPage() {
 
       <div className="flex gap-2 mb-0 border-b border-border px-6 overflow-x-auto">
         {(['about', 'prompt', 'sessions', 'backimages'] as const).map(tab => (
-          <button
+          <Button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -209,7 +211,7 @@ export default function ChannelDetailPage() {
             }`}
           >
             {tab === 'about' ? '소개' : tab === 'prompt' ? '시스템 프롬프트' : tab === 'sessions' ? '대화 이력' : '배경이미지'}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -331,12 +333,12 @@ export default function ChannelDetailPage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm">YouTube 채널 정보를 불러올 수 없습니다.</p>
-              <button
+              <Button
                 onClick={fetchYoutubeInfo}
                 className="mt-3 px-3 py-1.5 text-sm border border-border rounded-md hover:border-foreground/40 transition-colors"
               >
                 다시 시도
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -345,7 +347,7 @@ export default function ChannelDetailPage() {
       {activeTab === 'prompt' && (
         <div className="flex flex-col flex-1 p-4 gap-3 min-h-0">
           <h2 className="text-base font-semibold text-foreground flex-shrink-0">채널별 Gemini 시스템 프롬프트</h2>
-          <textarea
+          <Textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             placeholder="Gemini에게 전달할 채널 전용 시스템 프롬프트를 입력하세요..."
@@ -354,13 +356,13 @@ export default function ChannelDetailPage() {
           {error && <p className="text-red-500 dark:text-red-400 text-sm flex-shrink-0">{error}</p>}
           <div className="flex items-center justify-between flex-shrink-0">
             <span className="text-sm text-muted-foreground">{prompt.length.toLocaleString()} 자</span>
-            <button
+            <Button
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-md transition-colors"
             >
               {saving ? '저장 중...' : saved ? '✓ 저장됨' : '저장'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -410,13 +412,13 @@ export default function ChannelDetailPage() {
                 e.target.value = '';
               }}
             />
-            <button
+            <Button
               onClick={() => backImageInputRef.current?.click()}
               disabled={backImageUploading}
               className="px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-background text-foreground hover:border-foreground/40 disabled:opacity-50 transition-colors"
             >
               {backImageUploading ? '업로드 중...' : '이미지 추가'}
-            </button>
+            </Button>
             <span className="text-xs text-muted-foreground">
               {backImages.length}개 · 커버(대표 이미지)로 설정한 이미지가 YouTube 썸네일 배경으로 사용됩니다.
             </span>
@@ -465,19 +467,19 @@ export default function ChannelDetailPage() {
                   {/* 호버 오버레이 */}
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     {img.is_cover !== 1 && (
-                      <button
+                      <Button
                         onClick={() => handleSetCover(img.id)}
                         className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                       >
                         커버 설정
-                      </button>
+                      </Button>
                     )}
-                    <button
+                    <Button
                       onClick={() => handleDeleteBackImage(img.id)}
                       className="px-2 py-1 text-xs font-medium rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
                     >
                       삭제
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}

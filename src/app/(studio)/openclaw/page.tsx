@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/music-gen/db'
+import { Button } from '@/components/ui/button'
 
 interface Loop {
   id: string
@@ -25,12 +26,12 @@ export default async function OpenClawPage() {
           <h1 className="text-xl font-semibold text-foreground">OpenClaw 루프</h1>
           <p className="text-sm text-muted-foreground mt-1">Claude Agent SDK 자동 작곡 루프</p>
         </div>
-        <button
-          className="px-4 py-2 bg-brand hover:bg-brand-hover text-primary-foreground text-sm font-medium rounded-md transition-colors opacity-50 cursor-not-allowed self-start sm:self-auto"
+        <Button
+          className="px-4 py-2 bg-brand hover:bg-brand-hover text-primary-foreground text-sm font-medium rounded-md transition-colors opacity-50 cursor-not-allowed"
           disabled
         >
           + 새 루프 (P4에서 활성화)
-        </button>
+        </Button>
       </div>
 
       <div className="p-4 bg-accent dark:bg-accent border border-border rounded-lg">

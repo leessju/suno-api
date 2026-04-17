@@ -1,5 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 function TelegramTab() {
   const [chatId, setChatId] = useState('');
@@ -49,8 +53,8 @@ function TelegramTab() {
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">내 Chat ID</label>
-          <input
+          <Label className="block text-sm font-medium text-foreground mb-1.5">내 Chat ID</Label>
+          <Input
             type="text"
             value={chatId}
             onChange={e => setChatId(e.target.value)}
@@ -61,19 +65,19 @@ function TelegramTab() {
         </div>
 
         <div className="flex gap-3">
-          <button
+          <Button
             onClick={handleSave}
             className="flex-1 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm font-medium rounded-md transition-opacity"
           >
             {saved ? '저장됨 ✓' : '저장'}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleTest}
             disabled={!chatId}
             className="flex-1 py-2 px-4 bg-background border border-border text-foreground text-sm font-medium rounded-md hover:bg-accent transition-colors disabled:opacity-50"
           >
             테스트 전송
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -129,7 +133,7 @@ function MusicAnalysisPromptTab() {
       <p className="text-sm text-muted-foreground">
         이 프롬프트는 채널에 관계없이 모든 음악 분석에 공통으로 사용됩니다.
       </p>
-      <textarea
+      <Textarea
         value={value}
         onChange={e => setValue(e.target.value)}
         rows={16}
@@ -139,13 +143,13 @@ function MusicAnalysisPromptTab() {
       {error && <p className="text-destructive text-sm">{error}</p>}
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">{value.length.toLocaleString()} 자</span>
-        <button
+        <Button
           onClick={handleSave}
           disabled={saving}
           className="px-4 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-md transition-opacity"
         >
           {saving ? '저장 중...' : saved ? '✓ 저장됨' : '저장'}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -160,7 +164,7 @@ export default function SettingsPage() {
 
       <div className="flex gap-0 mb-6 border-b border-border overflow-x-auto">
         {(['telegram', 'music-prompt'] as const).map(tab => (
-          <button
+          <Button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -170,7 +174,7 @@ export default function SettingsPage() {
             }`}
           >
             {tab === 'telegram' ? '텔레그램 설정' : '음악 분석 프롬프트'}
-          </button>
+          </Button>
         ))}
       </div>
 

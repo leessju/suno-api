@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Button } from '@/components/ui/button'
 
 interface Track {
   suno_track_id: string
@@ -98,13 +99,13 @@ export default function MergePage({ params }: { params: { id: string } }) {
             드래그하거나 화살표 버튼으로 트랙 순서를 조정하세요
           </p>
         </div>
-        <button
+        <Button
           onClick={saveOrder}
           disabled={saving || order.length === 0}
           className="px-4 py-2 bg-primary hover:bg-primary disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-lg transition-colors w-full sm:w-auto"
         >
           {saving ? '저장 중...' : saved ? '저장됨' : '순서 저장'}
-        </button>
+        </Button>
       </div>
 
       {loading && (
@@ -155,7 +156,7 @@ export default function MergePage({ params }: { params: { id: string } }) {
 
             {/* 위아래 버튼 */}
             <div className="flex flex-col gap-1 flex-shrink-0">
-              <button
+              <Button
                 onClick={() => moveUp(idx)}
                 disabled={idx === 0}
                 className="p-1 rounded text-muted-foreground hover:text-foreground dark:hover:text-muted-foreground disabled:opacity-30 transition-colors"
@@ -164,8 +165,8 @@ export default function MergePage({ params }: { params: { id: string } }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                 </svg>
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => moveDown(idx)}
                 disabled={idx === orderedTracks.length - 1}
                 className="p-1 rounded text-muted-foreground hover:text-foreground dark:hover:text-muted-foreground disabled:opacity-30 transition-colors"
@@ -174,7 +175,7 @@ export default function MergePage({ params }: { params: { id: string } }) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </button>
+              </Button>
             </div>
           </div>
         ))}

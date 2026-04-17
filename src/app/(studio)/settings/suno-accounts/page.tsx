@@ -12,6 +12,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 export default function SunoAccountsSettingsPage() {
   const { accounts, selectedAccount, setSelectedAccount, refresh } = useSunoAccount()
@@ -96,12 +100,11 @@ export default function SunoAccountsSettingsPage() {
           <h1 className="text-xl font-semibold text-foreground">Suno 계정 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">Suno 쿠키를 붙여넣어 계정을 추가하세요.</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowAddForm(v => !v)}
-          className="px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm rounded-lg transition-colors self-start sm:self-auto"
         >
           + 계정 추가
-        </button>
+        </Button>
       </div>
 
       {/* 추가 폼 */}
@@ -113,35 +116,34 @@ export default function SunoAccountsSettingsPage() {
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm">{addError}</div>
             )}
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">라벨 (예: nicejames@gmail.com)</label>
-              <input
+              <Label className="block text-xs font-medium text-foreground mb-1">라벨 (예: nicejames@gmail.com)</Label>
+              <Input
                 type="text"
                 value={form.label}
                 onChange={e => setForm(p => ({ ...p, label: e.target.value }))}
                 placeholder="계정 식별용 이름"
                 required
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-foreground mb-1">Suno 쿠키</label>
-              <textarea
+              <Label className="block text-xs font-medium text-foreground mb-1">Suno 쿠키</Label>
+              <Textarea
                 value={form.cookie}
                 onChange={e => setForm(p => ({ ...p, cookie: e.target.value }))}
                 placeholder="Suno 브라우저 쿠키를 붙여넣으세요..."
                 required
                 rows={4}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                className="font-mono resize-none"
               />
               <p className="text-[11px] text-muted-foreground mt-1">크롬 DevTools → Application → Cookies → suno.com 에서 복사</p>
             </div>
             <div className="flex gap-2">
-              <button type="submit" disabled={adding} className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-md transition-colors">
+              <Button type="submit" disabled={adding}>
                 {adding ? '추가 중...' : '추가'}
-              </button>
-              <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-accent hover:bg-accent text-foreground text-sm rounded-md transition-colors">
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
                 취소
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -174,26 +176,32 @@ export default function SunoAccountsSettingsPage() {
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setSelectedAccount(acct)}
                 disabled={selectedAccount?.id === acct.id}
-                className="px-2.5 py-1 text-xs bg-accent hover:bg-accent disabled:opacity-40 text-muted-foreground rounded transition-colors"
+                className="text-xs px-2.5 py-1 h-auto"
               >
                 선택
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => handleToggleActive(acct.id, acct.is_active)}
-                className="px-2.5 py-1 text-xs bg-accent hover:bg-accent text-muted-foreground rounded transition-colors"
+                className="text-xs px-2.5 py-1 h-auto"
               >
                 {acct.is_active ? '비활성' : '활성화'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={() => handleDelete(acct.id)}
                 disabled={deleting === acct.id}
-                className="px-2.5 py-1 text-xs bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 dark:text-red-400 rounded transition-colors disabled:opacity-50"
+                className="text-xs px-2.5 py-1 h-auto"
               >
                 삭제
-              </button>
+              </Button>
             </div>
           </div>
         ))}

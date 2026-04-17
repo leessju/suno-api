@@ -1,6 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 
 interface UploadResult {
   id: string
@@ -80,12 +84,12 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             머지된 영상을 YouTube에 업로드합니다
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setShowForm(v => !v)}
           className="px-4 py-2 bg-primary hover:bg-primary text-primary-foreground text-sm font-medium rounded-lg transition-colors w-full sm:w-auto"
         >
           {showForm ? '취소' : '업로드 요청'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
@@ -100,10 +104,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <Label className="block text-sm font-medium text-foreground mb-1.5">
                 영상 제목
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
@@ -113,10 +117,10 @@ export default function UploadPage({ params }: { params: { id: string } }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <Label className="block text-sm font-medium text-foreground mb-1.5">
                 설명 (선택)
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 rows={4}
@@ -125,13 +129,13 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={submitting}
               className="w-full py-2.5 bg-primary hover:bg-primary disabled:opacity-50 text-primary-foreground font-medium rounded-md transition-colors text-sm"
             >
               {submitting ? '요청 중...' : '업로드 시작'}
-            </button>
+            </Button>
           </form>
         </div>
       )}
