@@ -20,17 +20,21 @@ logger = logging.getLogger('dispatcher')
 JOB_HANDLERS: dict[str, str] = {
     'midi.convert': 'workers.python.stages.midi.handle_midi_convert',
     'midi.analyze': 'workers.python.stages.analyze.handle_midi_analyze',
+    'midi_draft.generate': 'workers.python.stages.draft_gen.handle_midi_draft_generate',
     'variants.generate': 'workers.python.stages.variants.handle_variants_generate',
     'suno.generate': 'workers.python.stages.suno.handle_suno_generate',
     'suno.poll': 'workers.python.stages.suno.handle_suno_poll',
+    'draft_song.generate': 'workers.python.stages.draft_song.handle_draft_song_generate',
+    'draft_song.poll': 'workers.python.stages.draft_song.handle_draft_song_poll',
     'render.remotion': 'workers.python.stages.render.handle_render',
     'upload.youtube': 'workers.python.stages.upload.handle_youtube_upload',
     'approval.run': 'workers.python.stages.approval.handle_approval',
     'telegram.send': 'workers.python.stages.telegram.handle_telegram_send',
+    'synclens.orchestrate': 'workers.python.stages.synclens.orchestrate.handle_synclens_orchestrate',
 }
 
 # GPU/CPU 집약 job — 동시 1개 제한
-HEAVY_JOB_TYPES = {'midi.convert'}
+HEAVY_JOB_TYPES = {'midi.convert', 'synclens.extract_lyrics', 'synclens.render_song'}
 
 
 class Dispatcher:
@@ -142,10 +146,37 @@ class Dispatcher:
                 logger.info(f"Job 실행: {job_type} [{job_id[:8]}]")
                 await handler(job['payload'], db_path=self.db_path)
                 self._ack_job(job_id)
+                # synclens.* job 완료 시 orchestrate job 자동 enqueue
+                if job_type.startswith('synclens.') and job_type != 'synclens.orchestrate':
+                    step_id = job.get('payload', {}).get('step_id')
+                    run_id = job.get('payload', {}).get('run_id')
+                    if run_id and step_id:
+                        self._enqueue_orchestrate(run_id, step_id)
                 logger.info(f"Job 완료: {job_type} [{job_id[:8]}]")
             except Exception as e:
                 logger.error(f"Job 실패: {job_type} [{job_id[:8]}]: {e}")
                 self._fail_job(job_id, str(e), job['attempts'], job['max_attempts'])
+
+    def _enqueue_orchestrate(self, run_id: str, completed_step_id: str):
+        """synclens.* 완료 후 orchestrate job enqueue"""
+        import uuid as _uuid
+        conn = self._get_db()
+        try:
+            job_id = str(_uuid.uuid4())
+            now = int(time.time() * 1000)
+            conn.execute(
+                """
+                INSERT INTO job_queue (id, type, payload, status, attempts, max_attempts, scheduled_at)
+                VALUES (?, 'synclens.orchestrate', ?, 'pending', 0, 3, ?)
+                """,
+                (job_id, json.dumps({'run_id': run_id, 'completed_step_id': completed_step_id}), now)
+            )
+            conn.commit()
+            logger.debug(f"orchestrate job enqueued: run={run_id[:8]} step={completed_step_id[:8]}")
+        except Exception as e:
+            logger.error(f"orchestrate enqueue 실패: {e}")
+        finally:
+            conn.close()
 
     async def run(self, shutdown_event: asyncio.Event):
         """메인 폴링 루프 — heavy job 1개, light job 최대 4개 병렬"""

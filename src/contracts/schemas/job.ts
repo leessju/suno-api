@@ -2,9 +2,12 @@ import { z } from 'zod'
 
 export const JobTypeSchema = z.enum([
   'midi.convert',
+  'midi_draft.generate',
   'variants.generate',
   'suno.generate',
   'suno.poll',
+  'draft_song.generate',
+  'draft_song.poll',
   'render.remotion',
   'upload.youtube',
   'approval.run',

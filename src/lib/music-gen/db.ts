@@ -178,6 +178,22 @@ function runMigrations(db: Database.Database): void {
   );
   db.exec(migration011);
 
+  // 013: workspace_midis에 'midi_generating' 상태 추가
+  const migration013 = fs.readFileSync(
+    path.join(base, 'migrations/013_midi_generating_status.sql'),
+    'utf-8',
+  );
+  try { db.exec(migration013); } catch { /* 이미 존재 */ }
+
+  // 014: midi_draft_rows 테이블 (IF NOT EXISTS — 멱등)
+  const migration014 = fs.readFileSync(
+    path.join(base, 'migrations/014_midi_draft_rows.sql'),
+    'utf-8',
+  );
+  db.exec(migration014);
+  // 014-patch: updated_at 컬럼 추가 (기존 DB 대응)
+  try { db.exec('ALTER TABLE midi_draft_rows ADD COLUMN updated_at INTEGER NOT NULL DEFAULT (unixepoch())'); } catch { /* column already exists */ }
+
   // 012: workspace_midis에 'analyzing' 상태 추가 (CHECK 제약 재생성)
   // 'analyzing'이 이미 유효한 status인지 테스트 INSERT로 확인 후 필요 시 마이그레이션 실행
   try {
@@ -197,5 +213,40 @@ function runMigrations(db: Database.Database): void {
     } catch (e) {
       console.warn('[db] migration 012 skipped:', e)
     }
+  }
+
+  // 015: draft_songs 테이블 (IF NOT EXISTS — 멱등)
+  const migration015 = fs.readFileSync(
+    path.join(base, 'migrations/015_draft_songs.sql'),
+    'utf-8',
+  )
+  db.exec(migration015)
+
+  // 015-patch: workspaces.suno_project_id 컬럼 추가
+  const workspaceColsV3 = db.pragma('table_info(workspaces)') as Array<{ name: string }>
+  if (!workspaceColsV3.some(c => c.name === 'suno_project_id')) {
+    db.exec('ALTER TABLE workspaces ADD COLUMN suno_project_id TEXT;')
+  }
+
+  // 015-patch: workspace_midis.suno_cover_clip_id 컬럼 추가
+  const workspaceMidiColsV2 = db.pragma('table_info(workspace_midis)') as Array<{ name: string }>
+  if (!workspaceMidiColsV2.some(c => c.name === 'suno_cover_clip_id')) {
+    db.exec('ALTER TABLE workspace_midis ADD COLUMN suno_cover_clip_id TEXT;')
+  }
+
+  // 016: SyncLens 파이프라인 테이블
+  const migration016 = fs.readFileSync(
+    path.join(base, 'migrations/016_synclens_pipeline.sql'),
+    'utf-8',
+  );
+  db.exec(migration016);
+
+  // channels — SyncLens 전용 컬럼 추가
+  const channelColsSync = db.pragma('table_info(channels)') as Array<{ name: string }>;
+  if (!channelColsSync.some(c => c.name === 'sync_lens_folder')) {
+    db.exec('ALTER TABLE channels ADD COLUMN sync_lens_folder TEXT;');
+  }
+  if (!channelColsSync.some(c => c.name === 'youtube_token_path')) {
+    db.exec('ALTER TABLE channels ADD COLUMN youtube_token_path TEXT;');
   }
 }

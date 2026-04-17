@@ -60,15 +60,15 @@ const PhotoIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
   </svg>
 )
-const ShieldCheckIcon = () => (
-  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-  </svg>
-)
 const SettingsIcon = () => (
   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+)
+const PipelineIcon = () => (
+  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
   </svg>
 )
 
@@ -79,7 +79,7 @@ const navItemInactive = "text-muted-foreground hover:text-foreground hover:bg-ac
 const iconItemActive = "bg-accent text-foreground"
 const iconItemInactive = "text-muted-foreground hover:bg-accent hover:text-foreground"
 
-export function SideNav({ email }: { email: string }) {
+function SideNavContent({ email, onNavigate }: { email: string; onNavigate?: () => void }) {
   const pathname = usePathname()
   const { collapsed, toggleCollapsed } = useSideNav()
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -90,6 +90,7 @@ export function SideNav({ email }: { email: string }) {
     renders: false,
     uploads: false,
     assets: false,
+    pipeline: false,
   })
 
   function toggleSection(id: string) {
@@ -109,14 +110,15 @@ export function SideNav({ email }: { email: string }) {
     { id: 'renders', label: '렌더영상', icon: <FilmIcon />, items: [{ href: '/renders', label: '영상 목록' }] },
     { id: 'uploads', label: '업로드영상', icon: <UploadIcon />, items: [{ href: '/uploads', label: '업로드 목록' }] },
     { id: 'assets', label: '에셋관리', icon: <PhotoIcon />, items: [{ href: '/assets', label: '에셋' }] },
+    { id: 'pipeline', label: '파이프라인', icon: <PipelineIcon />, items: [{ href: '/pipeline', label: '파이프라인' }] },
   ]
 
   const sectionHref: Record<string, string> = {
     channel: '/channels', workspace: '/workspaces', midi: '/midis',
-    tracks: '/tracks', renders: '/renders', uploads: '/uploads', assets: '/assets',
+    tracks: '/tracks', renders: '/renders', uploads: '/uploads', assets: '/assets', pipeline: '/pipeline',
   }
 
-  // ── 접힘 모드 ──
+  // ── 접힘 모드 (데스크톱 전용) ──
   if (collapsed) {
     return (
       <aside className="w-12 flex-shrink-0 bg-background border-r border-border flex flex-col h-full transition-all duration-200">
@@ -163,12 +165,12 @@ export function SideNav({ email }: { email: string }) {
   return (
     <aside className="w-64 flex-shrink-0 bg-background border-r border-border flex flex-col h-full transition-all duration-200">
       <div className="p-3 border-b border-border flex items-center gap-2">
-        <Link href="/generate"
+        <Link href="/generate" onClick={onNavigate}
           className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
           노래 만들기
         </Link>
         <button onClick={toggleCollapsed} title="메뉴 접기"
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0">
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0 hidden md:flex">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
@@ -194,10 +196,10 @@ export function SideNav({ email }: { email: string }) {
             {(openSections[section.id] ?? false) && (
               <div>
                 {section.custom ? (
-                  <div className="pl-2">{section.custom}</div>
+                  <div className="pl-2" onClick={onNavigate}>{section.custom}</div>
                 ) : (
                   section.items.map(item => (
-                    <Link key={item.href} href={item.href}
+                    <Link key={item.href} href={item.href} onClick={onNavigate}
                       className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
                         isActive(item.href)
                           ? 'bg-accent text-foreground border-l-2 border-foreground'
@@ -214,7 +216,7 @@ export function SideNav({ email }: { email: string }) {
       </div>
 
       <div className="border-t border-border py-2">
-        <Link href="/settings"
+        <Link href="/settings" onClick={onNavigate}
           className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
           <SettingsIcon />
           설정
@@ -222,5 +224,38 @@ export function SideNav({ email }: { email: string }) {
         <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
       </div>
     </aside>
+  )
+}
+
+export function SideNav({ email }: { email: string }) {
+  const { mobileOpen, closeMobile } = useSideNav()
+
+  return (
+    <>
+      {/* 모바일 오버레이 */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 모바일: 오프캔버스 드로어 */}
+      <div
+        className={`
+          fixed inset-y-0 left-0 z-50 md:hidden
+          transition-transform duration-300 ease-in-out
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
+        <SideNavContent email={email} onNavigate={closeMobile} />
+      </div>
+
+      {/* 데스크톱: 기존 고정 사이드바 */}
+      <div className="hidden md:flex md:flex-shrink-0 h-full">
+        <SideNavContent email={email} />
+      </div>
+    </>
   )
 }
