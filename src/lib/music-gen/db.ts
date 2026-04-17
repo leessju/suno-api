@@ -4,17 +4,20 @@ import Database from 'better-sqlite3';
 
 const dbPath = process.env.MUSIC_GEN_DB_PATH ?? './data/music-gen.db';
 
-let _db: Database.Database | null = null;
+// Next.js dev hot-reload 시 모듈이 재평가돼도 DB 연결을 재사용하기 위해
+// global 객체에 싱글톤을 보존 (process 수준 단일 연결 보장)
+const globalForDb = global as unknown as { _musicGenDb?: Database.Database };
 
 export function getDb(): Database.Database {
-  if (!_db) {
+  if (!globalForDb._musicGenDb) {
     fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
-    _db = new Database(dbPath);
-    _db.pragma('journal_mode = WAL');
-    _db.pragma('foreign_keys = ON');
-    runMigrations(_db);
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    runMigrations(db);
+    globalForDb._musicGenDb = db;
   }
-  return _db;
+  return globalForDb._musicGenDb;
 }
 
 function runMigrations(db: Database.Database): void {

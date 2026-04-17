@@ -60,8 +60,7 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md p-8 space-y-6 bg-background rounded-2xl border border-border shadow-sm">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Suno Studio</h1>
-          <p className="text-muted-foreground mt-1 text-sm">크리에이터 도구</p>
+          <h1 className="text-2xl font-bold text-foreground">SyncLens</h1>
         </div>
 
         {error && (
