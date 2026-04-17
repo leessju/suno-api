@@ -364,14 +364,14 @@ export default function MidisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">미디파일</h1>
           <p className="text-sm text-muted-foreground mt-1">전체 워크스페이스의 MIDI 파일 목록</p>
         </div>
         <button
           onClick={() => setShowAdd(true)}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity"
+          className="px-4 py-2 rounded-lg text-sm font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity w-full sm:w-auto"
         >
           MIDI 추가
         </button>

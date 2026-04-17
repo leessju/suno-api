@@ -18,7 +18,7 @@ interface StudioHeaderProps {
 export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps) {
   const { channels, selectedChannel, setSelectedChannel, isLoading: channelLoading } = useChannel()
   const { accounts, selectedAccount, setSelectedAccount, isLoading: accountLoading } = useSunoAccount()
-  const { collapsed } = useSideNav()
+  const { collapsed, toggleMobile } = useSideNav()
   const [mounted, setMounted] = useState(false)
   const [channelThumbnails, setChannelThumbnails] = useState<Record<number, string>>({})
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -74,6 +74,17 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
     <header className="h-16 flex-shrink-0 bg-background border-b border-border flex z-10">
       {/* 좌측: 로고 영역 (사이드바 폭과 동기화) */}
       <div className={`flex-shrink-0 flex items-center border-r border-border transition-all duration-200 ${collapsed ? 'w-12 justify-center px-0' : 'w-64 px-4'}`}>
+        {/* 모바일 햄버거 버튼 */}
+        <button
+          onClick={toggleMobile}
+          className="md:hidden p-1.5 mr-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
+          aria-label="메뉴 열기"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
         <Link href="/" className="flex items-center gap-2 text-foreground overflow-hidden">
           <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="flex-shrink-0">
             <path d="M20 5C11.7157 5 5 11.7157 5 20C5 28.2843 11.7157 35 20 35C28.2843 35 35 28.2843 35 20" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/>
@@ -86,26 +97,43 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
       </div>
 
       {/* 우측: 브레드크럼 + 컨트롤 */}
-      <div className="flex-1 min-w-0 flex items-center px-4 sm:px-6 lg:px-8 gap-3">
-        <Breadcrumb />
+      <div className="flex-1 min-w-0 flex items-center px-3 sm:px-6 lg:px-8 gap-2">
+        <div className="min-w-0 overflow-hidden flex-shrink">
+          <Breadcrumb />
+        </div>
 
         <div className="ml-auto flex items-center gap-3">
           {/* Suno 계정 선택 + 크레딧 (마운트 후, 계정 있을 때만) */}
           {mounted && !accountLoading && accounts.length > 0 && (
             <>
               <div className="flex items-center gap-2">
-                {selectedAccount?.credits != null && (
-                  <span className="text-xs font-semibold text-foreground tabular-nums whitespace-nowrap">
-                    {selectedAccount.credits.credits_left.toLocaleString()} credits
-                  </span>
-                )}
+                {selectedAccount?.credits != null && (() => {
+                  const c = selectedAccount.credits.credits_left
+                  const level = c <= 50 ? 'critical' : c <= 100 ? 'warning' : 'ok'
+                  const styles = {
+                    ok:       { badge: 'bg-emerald-500/10 border-emerald-500/20', num: 'text-emerald-500', sub: 'text-emerald-500/70' },
+                    warning:  { badge: 'bg-orange-500/10 border-orange-500/30',   num: 'text-orange-500', sub: 'text-orange-500/70'   },
+                    critical: { badge: 'bg-red-500/10 border-red-500/30',          num: 'text-red-500',    sub: 'text-red-500/70'      },
+                  }[level]
+                  return (
+                    <span className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap border ${styles.badge}`}>
+                      {level === 'critical' && (
+                        <svg className="w-3 h-3 text-red-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                      )}
+                      <span className={`text-xs font-bold tabular-nums ${styles.num}`}>{c.toLocaleString()}</span>
+                      <span className={`text-[10px] font-medium ${styles.sub}`}>credits</span>
+                    </span>
+                  )
+                })()}
                 <select
                   value={selectedAccount?.id ?? ''}
                   onChange={e => {
                     const acc = accounts.find(a => a.id === Number(e.target.value))
                     if (acc) setSelectedAccount(acc)
                   }}
-                  className="h-7 pl-2 pr-6 text-xs rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer max-w-[160px] truncate"
+                  className="h-7 pl-2 pr-6 text-xs rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
                 >
                   {accounts.map(a => (
                     <option key={a.id} value={a.id}>{a.label}</option>
@@ -113,7 +141,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
                 </select>
               </div>
 
-              <div className="h-4 w-px bg-border" />
+              <div className="h-4 w-px bg-border hidden sm:block" />
             </>
           )}
 
@@ -138,7 +166,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
                         </span>
                       )}
                     </div>
-                    <span className="max-w-[120px] truncate">
+                    <span className="hidden sm:inline max-w-[120px] truncate">
                       {selectedChannel?.channel_handle
                         ? `@${selectedChannel.channel_handle}`
                         : selectedChannel?.channel_name ?? '채널 선택'}

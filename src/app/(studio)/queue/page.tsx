@@ -54,7 +54,7 @@ export default async function QueuePage() {
       <h1 className="text-xl font-semibold text-foreground">Job 큐</h1>
 
       {/* 통계 */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {Object.entries(stats).map(([status, cnt]) => (
           <div key={status} className="p-4 bg-background border border-border rounded-lg shadow-sm text-center">
             <p className={`text-xs font-medium uppercase tracking-wider mb-2 ${statLabelClass[status] ?? 'text-muted-foreground'}`}>{status}</p>
@@ -66,7 +66,7 @@ export default async function QueuePage() {
       {/* Job 목록 */}
       <div className="bg-background border border-border rounded-lg shadow-sm divide-y divide-gray-200 dark:divide-gray-800">
         {jobs.map(job => (
-          <div key={job.id} className="px-4 py-3 flex items-center gap-4 hover:bg-accent dark:hover:bg-accent transition-colors">
+          <div key={job.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 hover:bg-accent dark:hover:bg-accent transition-colors">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className={statusClass[job.status] ?? 'text-xs px-2 py-0.5 rounded-full font-medium bg-accent text-muted-foreground'}>

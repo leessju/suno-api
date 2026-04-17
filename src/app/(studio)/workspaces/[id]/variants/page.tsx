@@ -104,7 +104,7 @@ export default function VariantsPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Variants 선택</h1>
           <p className="text-muted-foreground text-sm mt-1">생성할 곡의 스타일을 선택하세요</p>
@@ -112,7 +112,7 @@ export default function VariantsPage({ params }: { params: { id: string } }) {
         <button
           onClick={generateVariants}
           disabled={generating}
-          className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-colors"
+          className="px-4 py-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm rounded-lg transition-colors w-full sm:w-auto"
         >
           {generating ? '생성 중...' : 'Gemini로 생성'}
         </button>

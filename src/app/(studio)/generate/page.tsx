@@ -188,7 +188,7 @@ export default function GeneratePage() {
         {/* 생성 모드 */}
         <div>
           <label className="text-sm font-medium text-foreground block mb-1.5">생성 모드</label>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {(['auto', 'manual'] as GenMode[]).map(m => (
               <button
                 key={m}
@@ -208,7 +208,7 @@ export default function GeneratePage() {
         {/* 곡수 선택 */}
         <div>
           <label className="text-sm font-medium text-foreground block mb-1.5">생성 곡수</label>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             {([5, 10, 'custom'] as CountOption[]).map(c => (
               <button
                 key={String(c)}
@@ -226,7 +226,7 @@ export default function GeneratePage() {
               <input
                 type="number" min={1} max={20} value={customCount}
                 onChange={e => setCustomCount(Math.min(20, Math.max(1, Number(e.target.value))))}
-                className="w-20 h-9 px-3 text-sm rounded-lg border border-border bg-background text-foreground text-center"
+                className="w-full sm:w-20 h-9 px-3 text-sm rounded-lg border border-border bg-background text-foreground text-center"
               />
             )}
           </div>
@@ -244,12 +244,12 @@ export default function GeneratePage() {
       {/* 결과 리스트 */}
       {contents.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <h2 className="text-base font-semibold text-foreground">생성 결과 ({contents.length}곡)</h2>
             {mode === 'manual' && selected.size > 0 && (
               <button
                 onClick={() => { selected.forEach(id => generateSuno(id)) }}
-                className="px-4 py-1.5 text-sm font-medium text-primary-foreground rounded-lg bg-green-600 hover:bg-green-500"
+                className="px-4 py-1.5 text-sm font-medium text-primary-foreground rounded-lg bg-green-600 hover:bg-green-500 w-full sm:w-auto"
               >
                 {selected.size}곡 Suno 생성
               </button>

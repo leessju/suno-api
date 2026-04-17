@@ -91,9 +91,13 @@ export function buildUserPrompt(
   mediaLines.push('');
   mediaLines.push('### Suno 스타일 프롬프트');
   mediaLines.push(
-    'suno_style_prompts 배열에 **5가지 variant**를 생성하라. ' +
-    '각 variant는 악기 편성, 무드 표현, 장르 레이블 중 하나 이상을 달리하여 뚜렷이 구분되게 하라.',
+    'suno_style_prompts 배열에 **정확히 5가지 variant**를 생성하라. ' +
+    '각 variant는 악기 편성, 무드 표현, 장르 레이블 중 하나 이상을 달리하여 뚜렷이 구분되게 하라. ' +
+    '반드시 5개를 채워야 한다.',
   );
+  mediaLines.push('');
+  mediaLines.push('### 요약(narrative)');
+  mediaLines.push('narrative 필드는 **한국어로 20자 이내**로 곡의 분위기를 한 줄로 요약하라. (영어 사용 금지)');
   mediaLines.push('');
 
   if (mediaAnalysis) {
@@ -195,7 +199,7 @@ export function buildUserPrompt(
     ...mediaLines,
     emotionInput ? `감정/분위기 입력: ${emotionInput}` : '',
     '',
-    'STRICT LANGUAGE RULE: Output lyrics in Japanese (Kanji + Furigana) only. Zero Korean characters allowed in lyrics field. English only for title_en, suno_style_prompts, narrative.',
+    'STRICT LANGUAGE RULE: Output lyrics in Japanese (Kanji + Furigana) only. Zero Korean characters allowed in lyrics field. English only for title_en, suno_style_prompts. narrative field must be in Korean (한국어), 20 characters or fewer.',
   ].filter(line => line !== null).join('\n');
 }
 

@@ -20,13 +20,13 @@ export default async function OpenClawPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">OpenClaw 루프</h1>
           <p className="text-sm text-muted-foreground mt-1">Claude Agent SDK 자동 작곡 루프</p>
         </div>
         <button
-          className="px-4 py-2 bg-brand hover:bg-brand-hover text-primary-foreground text-sm font-medium rounded-md transition-colors opacity-50 cursor-not-allowed"
+          className="px-4 py-2 bg-brand hover:bg-brand-hover text-primary-foreground text-sm font-medium rounded-md transition-colors opacity-50 cursor-not-allowed self-start sm:self-auto"
           disabled
         >
           + 새 루프 (P4에서 활성화)

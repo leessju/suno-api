@@ -22,8 +22,8 @@ const GENERATED_CONTENT_SCHEMA = {
     title_en:            { type: 'string' },
     title_jp:            { type: 'string' },
     lyrics:              { type: 'string' },
-    narrative:           { type: 'string' },
-    suno_style_prompts:  { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
+    narrative:           { type: 'string', description: '한국어 20자 이내 곡 분위기 요약' },
+    suno_style_prompts:  { type: 'array', items: { type: 'string' }, minItems: 5, maxItems: 5 },
     total_duration_sec:  { type: 'number' },
   },
 };
@@ -54,7 +54,12 @@ export async function generateContent(
   let previousFailedOutput: string | undefined;
   let failureReason: string | undefined;
 
+  const tag = `[GEN ch=${channel.id} fmt=${channel.lyric_format}]`;
+
   while (attempt < 3) {
+    attempt++;
+    console.log(`${tag} attempt ${attempt}/3 시작${failureReason ? ` — 이전 실패: ${failureReason}` : ''}`);
+
     const systemPrompt = buildSystemPrompt(channel);
     const userPrompt = buildUserPrompt(emotionInput, previousFailedOutput, failureReason, mediaAnalysis ?? undefined);
 
@@ -72,6 +77,8 @@ export async function generateContent(
         },
       );
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`${tag} attempt ${attempt}/3 API 오류:`, msg);
       throw err;
     }
 
@@ -79,38 +86,42 @@ export async function generateContent(
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      attempt++;
       failureReason = 'JSON 파싱 실패';
       previousFailedOutput = rawText;
+      console.error(`${tag} attempt ${attempt}/3 실패 — ${failureReason}`);
+      console.error(`${tag} rawText(100자):`, rawText.slice(0, 100));
       continue;
     }
 
     const validated = generatedContentSchema.safeParse(parsed);
     if (!validated.success) {
-      attempt++;
       failureReason = `스키마 불일치: ${validated.error.message}`;
       previousFailedOutput = JSON.stringify(parsed);
+      console.error(`${tag} attempt ${attempt}/3 실패 — ${failureReason}`);
       continue;
     }
 
     const fw = validateForbiddenWords(validated.data.lyrics, forbiddenWords);
     if (!fw.valid) {
-      attempt++;
       failureReason = `금지어 포함: ${fw.foundWords.join(', ')}`;
       previousFailedOutput = validated.data.lyrics;
+      console.error(`${tag} attempt ${attempt}/3 실패 — ${failureReason}`);
       continue;
     }
 
     const lv = validateLyrics(validated.data.lyrics, channel.lyric_format);
     if (!lv.valid) {
-      attempt++;
       failureReason = `구조 위반: ${lv.violations.join('; ')}`;
       previousFailedOutput = validated.data.lyrics;
+      console.error(`${tag} attempt ${attempt}/3 실패 — ${failureReason}`);
+      console.error(`${tag} 위반 가사(200자):`, validated.data.lyrics.slice(0, 200));
       continue;
     }
 
+    console.log(`${tag} attempt ${attempt}/3 성공 — model=${model}`);
     return { content: validated.data, model };
   }
 
-  throw new ValidationError('MAX_RETRY_EXCEEDED');
+  console.error(`${tag} 3회 모두 실패. 최종 원인: ${failureReason ?? '알 수 없음'}`);
+  throw new ValidationError(`MAX_RETRY_EXCEEDED: ${failureReason ?? '알 수 없음'}`);
 }

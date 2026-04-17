@@ -158,7 +158,7 @@ export default function SettingsPage() {
     <div className="w-full">
       <h1 className="text-xl font-semibold text-foreground mb-6">설정</h1>
 
-      <div className="flex gap-0 mb-6 border-b border-border">
+      <div className="flex gap-0 mb-6 border-b border-border overflow-x-auto">
         {(['telegram', 'music-prompt'] as const).map(tab => (
           <button
             key={tab}

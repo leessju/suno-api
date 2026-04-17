@@ -97,7 +97,7 @@ function ImageSection({ title, description, channelId, imageType, aspectClass }:
           이미지가 없습니다
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {images.map(img => (
             <div key={img.id} className="group rounded-lg overflow-hidden border border-border bg-accent">
               <div className={`${aspectClass} relative`}>

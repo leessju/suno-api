@@ -6,7 +6,7 @@ export const generatedContentSchema = z.object({
   title_jp: z.string().min(1),
   lyrics: z.string().min(1),
   narrative: z.string().min(1),
-  suno_style_prompts: z.array(z.string().min(1)).min(1).max(5),
+  suno_style_prompts: z.array(z.string().min(1)).min(5).max(5),
   total_duration_sec: z.number().optional(),
 });
 

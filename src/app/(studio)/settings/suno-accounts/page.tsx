@@ -91,14 +91,14 @@ export default function SunoAccountsSettingsPage() {
       </AlertDialogContent>
     </AlertDialog>
     <div className="w-full max-w-xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Suno 계정 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">Suno 쿠키를 붙여넣어 계정을 추가하세요.</p>
         </div>
         <button
           onClick={() => setShowAddForm(v => !v)}
-          className="px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm rounded-lg transition-colors"
+          className="px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm rounded-lg transition-colors self-start sm:self-auto"
         >
           + 계정 추가
         </button>

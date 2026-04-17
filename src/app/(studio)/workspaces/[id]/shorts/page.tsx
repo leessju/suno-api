@@ -295,7 +295,7 @@ export default function ShortsPage({ params }: { params: { id: string } }) {
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link
             href={`/workspaces/${params.id}`}
@@ -316,7 +316,7 @@ export default function ShortsPage({ params }: { params: { id: string } }) {
           <button
             onClick={bulkUpload}
             disabled={bulkUploading}
-            className="flex-shrink-0 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-lg transition-colors"
+            className="w-full sm:w-auto sm:flex-shrink-0 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-primary-foreground text-sm font-medium rounded-lg transition-colors"
           >
             {bulkUploading ? '업로드 중...' : `전체 업로드 (${pendingTracks.length})`}
           </button>

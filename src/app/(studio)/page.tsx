@@ -31,14 +31,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
           <p className="text-sm text-muted-foreground mt-1">안녕하세요, {session?.user.name ?? session?.user.email}!</p>
         </div>
         <Link
           href="/workspaces/new"
-          className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm font-medium rounded-md transition-colors"
+          className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm font-medium rounded-md transition-colors self-start sm:self-auto"
         >
           + 새 작업
         </Link>

@@ -41,7 +41,7 @@ export default function NewWorkspacePage() {
   }
 
   return (
-    <div className="max-w-md space-y-6">
+    <div className="w-full max-w-md space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">새 워크스페이스</h1>
         <p className="text-sm text-muted-foreground mt-1">

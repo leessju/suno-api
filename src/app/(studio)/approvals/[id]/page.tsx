@@ -48,12 +48,12 @@ export default async function ApprovalBoardPage({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-foreground">결재 보드</h1>
           <p className="text-sm text-muted-foreground mt-1">트랙: {session.track_id}</p>
         </div>
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+        <span className={`self-start px-2 py-0.5 rounded-full text-xs font-medium ${
           session.status === 'approved'
             ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
             : session.status === 'rejected'

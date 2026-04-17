@@ -102,12 +102,12 @@ export function Breadcrumb() {
   if (crumbs.length === 0) return null
 
   return (
-    <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-      <Link href="/" className="hover:text-foreground transition-colors">
+    <nav className="flex items-center gap-1 text-sm text-muted-foreground min-w-0 overflow-hidden whitespace-nowrap">
+      <Link href="/" className="hover:text-foreground transition-colors flex-shrink-0">
         홈
       </Link>
       {crumbs.map((crumb, i) => (
-        <span key={crumb.href} className="flex items-center gap-1">
+        <span key={crumb.href} className="flex items-center gap-1 flex-shrink-0">
           <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>

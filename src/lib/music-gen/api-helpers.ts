@@ -23,8 +23,9 @@ export function handleError(e: unknown): NextResponse {
     return err('ACCOUNT_POOL_INVALID', e.message, 500);
   }
   if (e instanceof ValidationError) {
-    if (e.message === 'MAX_RETRY_EXCEEDED') {
-      return err('MAX_RETRY_EXCEEDED', 'Content generation failed after 3 attempts.', 422);
+    if (e.message.startsWith('MAX_RETRY_EXCEEDED')) {
+      const reason = e.message.replace('MAX_RETRY_EXCEEDED: ', '')
+      return err('MAX_RETRY_EXCEEDED', `가사 생성 3회 실패 — ${reason}`, 422);
     }
   }
   if (e instanceof Error && e.message === 'GEMINI_API_KEY_MISSING') {

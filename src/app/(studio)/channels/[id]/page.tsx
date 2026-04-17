@@ -197,7 +197,7 @@ export default function ChannelDetailPage() {
         <p className="text-sm text-muted-foreground mt-1">{channel.youtube_channel_id}</p>
       </div>
 
-      <div className="flex gap-2 mb-0 border-b border-border px-6">
+      <div className="flex gap-2 mb-0 border-b border-border px-6 overflow-x-auto">
         {(['about', 'prompt', 'sessions', 'backimages'] as const).map(tab => (
           <button
             key={tab}
