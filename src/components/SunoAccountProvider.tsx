@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 
 interface SunoCredits {
   credits_left: number
@@ -22,6 +22,7 @@ interface SunoAccountContextValue {
   setSelectedAccount: (account: SunoAccount) => void
   isLoading: boolean
   refresh: () => void
+  refreshCredits: (force?: boolean) => void
 }
 
 const SunoAccountContext = createContext<SunoAccountContextValue>({
@@ -30,6 +31,7 @@ const SunoAccountContext = createContext<SunoAccountContextValue>({
   setSelectedAccount: () => {},
   isLoading: true,
   refresh: () => {},
+  refreshCredits: () => {},
 })
 
 export function useSunoAccount() {
@@ -74,6 +76,30 @@ export function SunoAccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { loadAccounts() }, [loadAccounts])
 
+  const selectedAccountRef = useRef(selectedAccount)
+  useEffect(() => { selectedAccountRef.current = selectedAccount }, [selectedAccount])
+
+  const lastCreditsFetchRef = useRef<number>(0)
+
+  const refreshCredits = useCallback(async (force?: boolean) => {
+    const acct = selectedAccountRef.current
+    if (!acct) return
+    // 5분(300초) TTL — force 파라미터로 강제 갱신 가능
+    const now = Date.now()
+    if (!force && now - lastCreditsFetchRef.current < 300_000) return
+    lastCreditsFetchRef.current = now
+    fetch(`/api/music-gen/suno-accounts/${acct.id}/credits`)
+      .then(r => r.json())
+      .then(c => {
+        if (c.credits_left != null) {
+          setSelectedAccountState(prev =>
+            prev?.id === acct.id ? { ...prev, credits: c } : prev
+          )
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   const setSelectedAccount = useCallback((account: SunoAccount) => {
     setSelectedAccountState(account)
     localStorage.setItem('selectedSunoAccountId', String(account.id))
@@ -93,7 +119,7 @@ export function SunoAccountProvider({ children }: { children: ReactNode }) {
 
   return (
     <SunoAccountContext.Provider value={{
-      accounts, selectedAccount, setSelectedAccount, isLoading, refresh: loadAccounts
+      accounts, selectedAccount, setSelectedAccount, isLoading, refresh: loadAccounts, refreshCredits
     }}>
       {children}
     </SunoAccountContext.Provider>

@@ -9,6 +9,7 @@ const EnqueueBodySchema = z.object({
   payload: z.record(z.string(), z.unknown()),
   idempotency_key: z.string().optional(),
   scheduled_at: z.number().optional(),
+  max_attempts: z.number().int().min(1).max(10).optional(),
 })
 
 export async function POST(req: NextRequest) {

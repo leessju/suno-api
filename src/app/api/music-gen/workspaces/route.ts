@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
           const sunoWsId = (sunoWs as { id?: string })?.id ?? null
           if (sunoWsId) {
             db.prepare(
-              "UPDATE workspaces SET suno_workspace_id = ?, suno_sync_status = 'synced', suno_synced_at = ? WHERE id = ?"
-            ).run(sunoWsId, Date.now(), id)
+              "UPDATE workspaces SET suno_workspace_id = ?, suno_project_id = ?, suno_sync_status = 'synced', suno_synced_at = ? WHERE id = ?"
+            ).run(sunoWsId, sunoWsId, Date.now(), id)
           }
         }
       } catch {

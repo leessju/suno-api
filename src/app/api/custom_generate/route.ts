@@ -16,11 +16,14 @@ export async function POST(req: NextRequest) {
         cover_clip_id, is_remix,
         playlist_clip_ids,
         mashup_clip_ids,
-        chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s
+        chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s,
+        project_id,
+        vocal_gender
       } = body;
 
+      const { audio_weight, style_weight, weirdness } = body;
       const modOptions = (cover_clip_id || playlist_clip_ids || mashup_clip_ids || chop_sample_clip_id)
-        ? { cover_clip_id, is_remix, playlist_clip_ids, mashup_clip_ids, chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s }
+        ? { cover_clip_id, is_remix, playlist_clip_ids, mashup_clip_ids, chop_sample_clip_id, chop_sample_start_s, chop_sample_end_s, audio_weight, style_weight, weirdness }
         : undefined;
 
       const account = extractAccount(body);
@@ -33,7 +36,9 @@ export async function POST(req: NextRequest) {
         artist_clip_id,
         artist_start_s,
         artist_end_s,
-        modOptions
+        modOptions,
+        project_id,
+        vocal_gender || undefined
       );
       return new NextResponse(JSON.stringify(audioInfo), {
         status: 200,

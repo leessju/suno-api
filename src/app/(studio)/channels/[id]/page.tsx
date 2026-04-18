@@ -9,16 +9,9 @@ interface Channel {
   id: number;
   channel_name: string;
   youtube_channel_id: string;
+  channel_handle: string | null;
   system_prompt: string;
   lyric_format: string;
-}
-
-interface Session {
-  id: string;
-  title: string | null;
-  status: string;
-  created_at: number;
-  updated_at: number;
 }
 
 interface YoutubeVideo {
@@ -28,16 +21,6 @@ interface YoutubeVideo {
   duration: number;
   publishedAt: string;
   url: string;
-}
-
-interface BackImage {
-  id: number;
-  channel_id: number;
-  r2_key: string;
-  filename: string;
-  is_cover: number;
-  display_order: number;
-  created_at: number;
 }
 
 interface YoutubeInfo {
@@ -57,38 +40,36 @@ interface YoutubeInfo {
 }
 
 export default function ChannelDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: youtubeId } = useParams<{ id: string }>();
   const router = useRouter();
   const { channels, selectedChannel, setSelectedChannel } = useChannel();
 
-  // URL의 채널 ID → 헤더 드롭다운 동기화 (직접 URL 접근 시)
+  // youtube_channel_id로 채널 매칭 → 숫자 id를 API 호출에 사용
+  const matchedChannel = channels.find(c => c.youtube_channel_id === youtubeId);
+  const id = matchedChannel ? String(matchedChannel.id) : youtubeId;
+
+  // URL의 youtube_id → 헤더 드롭다운 동기화 (직접 URL 접근 시)
   useEffect(() => {
     if (!channels.length) return;
-    const matched = channels.find(c => String(c.id) === id);
-    if (matched && String(selectedChannel?.id) !== id) {
-      setSelectedChannel(matched);
+    if (matchedChannel && selectedChannel?.id !== matchedChannel.id) {
+      setSelectedChannel(matchedChannel);
     }
-  }, [id, channels, selectedChannel, setSelectedChannel]);
+  }, [youtubeId, channels, matchedChannel, selectedChannel, setSelectedChannel]);
 
   // 헤더 채널 드롭다운이 바뀌면 해당 채널 페이지로 이동
   useEffect(() => {
-    if (selectedChannel && String(selectedChannel.id) !== id) {
-      router.replace(`/channels/${selectedChannel.id}`);
+    if (selectedChannel && selectedChannel.youtube_channel_id !== youtubeId) {
+      router.replace(`/channels/${selectedChannel.youtube_channel_id}`);
     }
-  }, [selectedChannel, id, router]);
+  }, [selectedChannel, youtubeId, router]);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [sessions, setSessions] = useState<Session[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'about' | 'prompt' | 'sessions' | 'backimages'>('about');
+  const [activeTab, setActiveTab] = useState<'about' | 'prompt'>('about');
   const [youtubeInfo, setYoutubeInfo] = useState<YoutubeInfo | null>(null);
   const [youtubeLoading, setYoutubeLoading] = useState(false);
-  const [backImages, setBackImages] = useState<BackImage[]>([]);
-  const [backImagesLoading, setBackImagesLoading] = useState(false);
-  const [backImageUploading, setBackImageUploading] = useState(false);
-  const backImageInputRef = useRef<HTMLInputElement>(null);
 
   const fetchChannel = useCallback(async () => {
     const res = await fetch(`/api/music-gen/channels/${id}`);
@@ -99,15 +80,6 @@ export default function ChannelDetailPage() {
       setPrompt(ch.system_prompt ?? '');
     }
   }, [id]);
-
-  const fetchSessions = useCallback(async () => {
-    const res = await fetch(`/api/music-gen/sessions?channel_id=${id}`);
-    if (res.ok) {
-      const data = await res.json();
-      setSessions(Array.isArray(data) ? data : (data.data ?? []));
-    }
-  }, [id]);
-
 
   const fetchYoutubeInfo = useCallback(async () => {
     setYoutubeLoading(true);
@@ -122,53 +94,10 @@ export default function ChannelDetailPage() {
     }
   }, [id]);
 
-  const fetchBackImages = useCallback(async () => {
-    setBackImagesLoading(true);
-    try {
-      const res = await fetch(`/api/music-gen/back-images?channel_id=${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBackImages(data.data ?? data);
-      }
-    } finally {
-      setBackImagesLoading(false);
-    }
-  }, [id]);
-
   useEffect(() => {
     fetchChannel();
-    fetchSessions();
     fetchYoutubeInfo();
-    fetchBackImages();
-  }, [fetchChannel, fetchSessions, fetchYoutubeInfo, fetchBackImages]);
-
-  const handleBackImageUpload = async (file: File, imageType: 'video' | 'thumbnail') => {
-    setBackImageUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('channel_id', id);
-      fd.append('image_type', imageType);
-      const res = await fetch('/api/music-gen/back-images', { method: 'POST', body: fd });
-      if (res.ok) await fetchBackImages();
-    } finally {
-      setBackImageUploading(false);
-    }
-  };
-
-  const handleSetCover = async (imageId: number) => {
-    await fetch(`/api/music-gen/back-images/${imageId}/cover`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel_id: Number(id) }),
-    });
-    await fetchBackImages();
-  };
-
-  const handleDeleteBackImage = async (imageId: number) => {
-    await fetch(`/api/music-gen/back-images/${imageId}`, { method: 'DELETE' });
-    await fetchBackImages();
-  };
+  }, [fetchChannel, fetchYoutubeInfo]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -196,21 +125,24 @@ export default function ChannelDetailPage() {
     <div className="flex-1 flex flex-col min-h-0 pb-0">
       <div className="px-6 pt-6 mb-4">
         <h1 className="text-xl font-semibold text-foreground">{channel.channel_name}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{channel.youtube_channel_id}</p>
+        {channel.channel_handle && (
+          <p className="text-sm text-muted-foreground mt-1">@{channel.channel_handle}</p>
+        )}
       </div>
 
       <div className="flex gap-2 mb-0 border-b border-border px-6 overflow-x-auto">
-        {(['about', 'prompt', 'sessions', 'backimages'] as const).map(tab => (
+        {(['about', 'prompt'] as const).map(tab => (
           <Button
             key={tab}
+            variant="ghost"
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 rounded-none transition-colors ${
               activeTab === tab
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-primary text-foreground bg-transparent hover:bg-transparent'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-transparent'
             }`}
           >
-            {tab === 'about' ? '소개' : tab === 'prompt' ? '시스템 프롬프트' : tab === 'sessions' ? '대화 이력' : '배경이미지'}
+            {tab === 'about' ? '소개' : '시스템 프롬프트'}
           </Button>
         ))}
       </div>
@@ -334,8 +266,9 @@ export default function ChannelDetailPage() {
             <div className="text-center py-12 text-muted-foreground">
               <p className="text-sm">YouTube 채널 정보를 불러올 수 없습니다.</p>
               <Button
+                variant="outline"
                 onClick={fetchYoutubeInfo}
-                className="mt-3 px-3 py-1.5 text-sm border border-border rounded-md hover:border-foreground/40 transition-colors"
+                className="mt-3 px-3 py-1.5 text-sm"
               >
                 다시 시도
               </Button>
@@ -367,126 +300,6 @@ export default function ChannelDetailPage() {
         </div>
       )}
 
-      {activeTab === 'sessions' && (
-        <div className="bg-background border border-border rounded-lg shadow-sm p-5">
-          <h2 className="text-xl font-semibold text-foreground mb-4">대화 이력 ({sessions.length})</h2>
-          {sessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">대화 이력이 없습니다.</p>
-          ) : (
-            <div className="divide-y divide-gray-200 dark:divide-gray-800">
-              {sessions.map(session => (
-                <div key={session.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm text-foreground">{session.title ?? '(제목 없음)'}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {new Date(session.created_at).toLocaleString('ko-KR')}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    session.status === 'active'
-                      ? 'bg-accent dark:bg-accent text-foreground'
-                      : 'bg-accent text-muted-foreground'
-                  }`}>
-                    {session.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'backimages' && (
-        <div className="flex-1 overflow-auto p-4 space-y-4">
-          {/* 업로드 버튼 */}
-          <div className="flex items-center gap-2">
-            <input
-              ref={backImageInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={async e => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                await handleBackImageUpload(file, 'video');
-                e.target.value = '';
-              }}
-            />
-            <Button
-              onClick={() => backImageInputRef.current?.click()}
-              disabled={backImageUploading}
-              className="px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-background text-foreground hover:border-foreground/40 disabled:opacity-50 transition-colors"
-            >
-              {backImageUploading ? '업로드 중...' : '이미지 추가'}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {backImages.length}개 · 커버(대표 이미지)로 설정한 이미지가 YouTube 썸네일 배경으로 사용됩니다.
-            </span>
-          </div>
-
-          {/* 이미지 목록 */}
-          {backImagesLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="aspect-video bg-accent rounded-lg animate-pulse" />
-              ))}
-            </div>
-          ) : backImages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border rounded-lg text-muted-foreground">
-              <svg className="w-10 h-10 mb-3 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M3 15l5-5 4 4 3-3 6 6" strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              </svg>
-              <p className="text-sm">배경이미지가 없습니다.</p>
-              <p className="text-xs mt-1">이미지 추가 버튼으로 업로드하세요.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {backImages.map(img => (
-                <div
-                  key={img.id}
-                  className={`relative group rounded-lg overflow-hidden border-2 transition-colors ${
-                    img.is_cover ? 'border-primary' : 'border-border'
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/r2/object/${img.r2_key}`}
-                    alt={img.filename}
-                    className="w-full aspect-video object-cover"
-                  />
-
-                  {/* 커버 배지 */}
-                  {img.is_cover === 1 && (
-                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-primary text-primary-foreground">
-                      커버
-                    </span>
-                  )}
-
-                  {/* 호버 오버레이 */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    {img.is_cover !== 1 && (
-                      <Button
-                        onClick={() => handleSetCover(img.id)}
-                        className="px-2 py-1 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                      >
-                        커버 설정
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => handleDeleteBackImage(img.id)}
-                      className="px-2 py-1 text-xs font-medium rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
-                    >
-                      삭제
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

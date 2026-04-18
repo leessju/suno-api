@@ -396,7 +396,7 @@ interface GenerateSongsPayload {
   artist_end_s?: number | null;
   // Cover mode
   cover_clip_id?: string | null;
-  metadata?: { is_remix?: boolean; create_mode?: string };
+  metadata?: { is_remix?: boolean; create_mode?: string; control_sliders?: Record<string, number> };
   // Inspo mode
   playlist_id?: string;
   playlist_clip_ids?: string[];
@@ -406,6 +406,8 @@ interface GenerateSongsPayload {
   chop_sample_clip_id?: string;
   chop_sample_start_s?: number;
   chop_sample_end_s?: number;
+  // Project/Workspace
+  project_id?: string;
 }
 
 /**
@@ -416,6 +418,12 @@ interface GenerateModOptions {
   cover_clip_id?: string;
   /** Cover mode: treat as remix (default true when cover) */
   is_remix?: boolean;
+  /** Cover mode: audio influence weight 0.0~1.0 (control_sliders.audio_weight) */
+  audio_weight?: number;
+  /** Cover mode: style influence weight 0.0~1.0 (control_sliders.style_weight) */
+  style_weight?: number;
+  /** Weirdness/creativity level 0.0~1.0 (control_sliders.weirdness_constraint) */
+  weirdness?: number;
   /** Inspo mode: array of clip IDs for inspiration */
   playlist_clip_ids?: string[];
   /** Mashup mode: array of two clip IDs to mashup */
@@ -447,7 +455,7 @@ interface TranscribedWord {
 }
 
 class SunoApi {
-  private static BASE_URL: string = 'https://studio-api-prod.suno.com';
+  private static BASE_URL: string = process.env.SUNO_PROXY_URL || 'https://studio-api-prod.suno.com';
   private static CLERK_BASE_URL: string = 'https://auth.suno.com';
   private static CLERK_VERSION = '5.117.0';
   private static CLERK_API_VERSION = '2025-11-10';
@@ -1309,7 +1317,9 @@ class SunoApi {
     artist_clip_id?: string,
     artist_start_s?: number,
     artist_end_s?: number,
-    modOptions?: GenerateModOptions
+    modOptions?: GenerateModOptions,
+    project_id?: string,
+    vocal_gender?: string
   ): Promise<AudioInfo[]> {
     validateRequiredString(prompt, 'prompt');
     validateRequiredString(tags, 'tags');
@@ -1328,11 +1338,13 @@ class SunoApi {
       negative_tags,
       undefined,
       undefined,
+      project_id,
       undefined,
       artist_clip_id,
       artist_start_s,
       artist_end_s,
-      modOptions
+      modOptions,
+      vocal_gender
     );
     const costTime = Date.now() - startTime;
     logger.info(
@@ -1367,11 +1379,13 @@ class SunoApi {
     negative_tags?: string,
     task?: string,
     continue_clip_id?: string,
+    project_id?: string,
     continue_at?: number,
     artist_clip_id?: string,
     artist_start_s?: number,
     artist_end_s?: number,
-    modOptions?: GenerateModOptions
+    modOptions?: GenerateModOptions,
+    vocal_gender?: string
   ): Promise<AudioInfo[]> {
     // Validate task parameter if provided
     validateOptionalString(task, 'task');
@@ -1408,15 +1422,22 @@ class SunoApi {
       artist_start_s: artist_start_s ?? null,
       artist_end_s: artist_end_s ?? null,
       task: task,
-      token: await this.getCaptcha()
+      token: await this.getCaptcha(),
+      project_id: project_id,
     };
 
     // Cover mode
     if (task === 'cover' && modOptions?.cover_clip_id) {
       payload.cover_clip_id = modOptions.cover_clip_id;
+      const controlSliders: Record<string, number> = {};
+      if (modOptions.style_weight != null) controlSliders.style_weight = modOptions.style_weight;
+      if (modOptions.audio_weight != null) controlSliders.audio_weight = modOptions.audio_weight;
+      if (modOptions.weirdness != null) controlSliders.weirdness_constraint = modOptions.weirdness;
       payload.metadata = {
         is_remix: modOptions.is_remix !== false,
-        create_mode: isCustom ? 'custom' : undefined
+        create_mode: isCustom ? 'custom' : undefined,
+        ...(Object.keys(controlSliders).length > 0 ? { control_sliders: controlSliders } : {}),
+        ...(vocal_gender ? { vocal_gender } : {}),
       };
     }
     // Inspo mode
@@ -1453,7 +1474,7 @@ class SunoApi {
       payload: payload
     }));
     const response = await this.client.post<ClipsResponse>(
-      `${SunoApi.BASE_URL}/api/generate/v2/`,
+      `${SunoApi.BASE_URL}/api/generate/v2-web/`,
       payload,
       {
         timeout: SunoApi.TIMEOUTS.API_GENERATE
@@ -1586,7 +1607,7 @@ class SunoApi {
     validateRequiredString(audioId, 'audioId');
     validateOptionalString(model, 'model');
     validateNumber(continueAt, 'continueAt');
-    return this.generateSongs(prompt, true, tags, title, false, model, wait_audio, negative_tags, 'extend', audioId, continueAt);
+    return this.generateSongs(prompt, true, tags, title, false, model, wait_audio, negative_tags, 'extend', audioId, undefined, continueAt);
   }
 
   /**

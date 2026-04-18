@@ -8,6 +8,8 @@ import logging
 import os
 import signal
 import sys
+import time
+import uuid
 from pathlib import Path
 
 # 프로젝트 루트를 sys.path에 추가
@@ -66,6 +68,39 @@ async def main():
     poll_interval = float(os.environ.get('WORKER_POLL_INTERVAL', '1.0'))
 
     dispatcher = Dispatcher(db_path=db_path, poll_interval=poll_interval)
+
+    # stuck job/song 복구
+    try:
+        import sqlite3 as _sql
+        _conn = _sql.connect(db_path)
+        # running 상태 job → pending 리셋
+        r1 = _conn.execute("UPDATE job_queue SET status = 'pending' WHERE status = 'running'")
+        if r1.rowcount:
+            logger.info(f"stuck running job {r1.rowcount}개 → pending 리셋")
+        # processing draft_songs 중 대응 poll job 없는 것 → 새 poll job 생성
+        _conn.row_factory = _sql.Row
+        stuck = _conn.execute("""
+            SELECT ds.id, ds.suno_id FROM draft_songs ds
+            WHERE ds.status = 'processing' AND ds.suno_id IS NOT NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM job_queue jq
+                WHERE jq.type = 'draft_song.poll' AND jq.status IN ('pending','running')
+                AND jq.payload LIKE '%' || ds.id || '%'
+            )
+        """).fetchall()
+        if stuck:
+            import json as _json
+            now = int(time.time() * 1000)
+            for s in stuck:
+                _conn.execute(
+                    "INSERT INTO job_queue (id, type, payload, status, scheduled_at, max_attempts) VALUES (?, 'draft_song.poll', ?, 'pending', ?, 5)",
+                    (str(uuid.uuid4()), _json.dumps({'draft_song_ids': [s['id']], 'clip_ids': [s['suno_id']], 'account_id': 1, 'poll_count': 0}), now)
+                )
+            _conn.commit()
+            logger.info(f"stuck processing songs {len(stuck)}개 → poll job 재생성")
+        _conn.close()
+    except Exception as e:
+        logger.warning(f"stuck 복구 중 오류 (무시): {e}")
 
     loop = asyncio.get_running_loop()
     shutdown_event = asyncio.Event()

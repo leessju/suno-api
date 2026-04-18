@@ -3,11 +3,13 @@ import { z } from 'zod'
 export const JobTypeSchema = z.enum([
   'midi.convert',
   'midi_draft.generate',
+  'midi.analyze',
   'variants.generate',
   'suno.generate',
   'suno.poll',
   'draft_song.generate',
   'draft_song.poll',
+  'draft.variants',
   'render.remotion',
   'upload.youtube',
   'approval.run',
@@ -42,7 +44,11 @@ export const SunoGeneratePayloadSchema = z.object({
 export const RenderPayloadSchema = z.object({
   workspace_id: z.string(),
   suno_track_id: z.string(),
-  channel_id: z.number(),
+  audio_url: z.string(),
+  image_url: z.string().nullable(),
+  style_used: z.string().nullable(),
+  title: z.string().nullable(),
+  sort_order: z.number().int(),
 })
 
 export const UploadYoutubePayloadSchema = z.object({

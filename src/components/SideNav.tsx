@@ -2,10 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { WorkspaceTree } from './WorkspaceTree'
 import { useSideNav } from './SideNavProvider'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface Section {
   id: string
@@ -80,9 +87,47 @@ const navItemInactive = "text-muted-foreground hover:text-foreground hover:bg-ac
 const iconItemActive = "bg-accent text-foreground"
 const iconItemInactive = "text-muted-foreground hover:bg-accent hover:text-foreground"
 
+interface JobStats {
+  pending: number
+  running: number
+  done: number
+  failed: number
+}
+
+function useJobStats() {
+  const [stats, setStats] = useState<JobStats>({ pending: 0, running: 0, done: 0, failed: 0 })
+
+  useEffect(() => {
+    let cancelled = false
+    async function poll() {
+      try {
+        const res = await fetch('/api/music-gen/queue')
+        if (!res.ok || cancelled) return
+        const json = await res.json()
+        const s = json?.stats ?? json?.data ?? json
+        if (!cancelled) {
+          setStats({
+            pending: s?.pending ?? 0,
+            running: s?.running ?? 0,
+            done: s?.done ?? 0,
+            failed: s?.failed ?? 0,
+          })
+        }
+      } catch { /* ignore */ }
+    }
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  return stats
+}
+
 function SideNavContent({ email }: { email: string }) {
   const pathname = usePathname()
   const { collapsed, toggleCollapsed, mobileOpen, closeMobile } = useSideNav()
+  const jobStats = useJobStats()
+  const jobCount = jobStats.pending + jobStats.running
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     channel: true,
     workspace: true,
@@ -106,12 +151,12 @@ function SideNavContent({ email }: { email: string }) {
   const sections: Section[] = [
     { id: 'channel', label: '채널', icon: <SignalIcon />, items: [{ href: '/channels', label: '채널 목록' }] },
     { id: 'workspace', label: '워크스페이스', icon: <FolderIcon />, items: [], custom: <Suspense><WorkspaceTree /></Suspense> },
-    { id: 'midi', label: 'MIDI파일', icon: <PianoIcon />, items: [{ href: '/midis', label: '전체 목록' }] },
-    { id: 'tracks', label: '음원리스트', icon: <MusicalNotesIcon />, items: [{ href: '/tracks', label: '전체 트랙' }] },
+    { id: 'midi', label: '원곡', icon: <PianoIcon />, items: [{ href: '/midis', label: '전체 목록' }] },
+    { id: 'tracks', label: 'Cover곡', icon: <MusicalNotesIcon />, items: [{ href: '/tracks', label: '전체 목록' }] },
     { id: 'renders', label: '렌더영상', icon: <FilmIcon />, items: [{ href: '/renders', label: '영상 목록' }] },
     { id: 'uploads', label: '업로드영상', icon: <UploadIcon />, items: [{ href: '/uploads', label: '업로드 목록' }] },
-    { id: 'assets', label: '에셋관리', icon: <PhotoIcon />, items: [{ href: '/assets', label: '에셋' }] },
-    { id: 'pipeline', label: '파이프라인', icon: <PipelineIcon />, items: [{ href: '/pipeline', label: '파이프라인' }] },
+    { id: 'assets', label: '에셋관리', icon: <PhotoIcon />, items: [{ href: '/assets', label: '이미지' }] },
+    { id: 'pipeline', label: '파이프라인', icon: <PipelineIcon />, items: [{ href: '/pipeline', label: '파이프라인' }, { href: '/admin/queue', label: 'Queue Board' }] },
   ]
 
   const sectionHref: Record<string, string> = {
@@ -123,14 +168,8 @@ function SideNavContent({ email }: { email: string }) {
   function SidebarMenuContent() {
     return (
       <>
-        <div className="p-3 border-b border-border flex items-center gap-2">
-          <Link href="/generate"
-            className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
-            노래 만들기
-          </Link>
-        </div>
-
         <div className="flex-1 overflow-y-auto min-h-0 py-2">
+          <p className="text-xs text-muted-foreground truncate px-3 pb-2">{email}</p>
           {sections.map(section => (
             <div key={section.id}>
               <button
@@ -141,7 +180,16 @@ function SideNavContent({ email }: { email: string }) {
                   {section.icon}
                   {section.label}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  {section.id === 'pipeline' && jobCount > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                      </span>
+                      <span className="text-xs font-medium text-blue-500">{jobCount}</span>
+                    </span>
+                  )}
                   <ChevronIcon open={openSections[section.id] ?? false} />
                 </span>
               </button>
@@ -153,12 +201,21 @@ function SideNavContent({ email }: { email: string }) {
                   ) : (
                     section.items.map(item => (
                       <Link key={item.href} href={item.href}
-                        className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
+                        className={`flex items-center justify-between px-3 py-2.5 pl-9 text-sm transition-colors ${
                           isActive(item.href)
                             ? 'bg-accent text-foreground border-l-2 border-foreground'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                         }`}>
                         {item.label}
+                        {item.href === '/admin/queue' && jobCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                            </span>
+                            <span className="text-xs font-medium text-blue-500">{jobCount}</span>
+                          </span>
+                        )}
                       </Link>
                     ))
                   )}
@@ -169,12 +226,44 @@ function SideNavContent({ email }: { email: string }) {
         </div>
 
         <div className="border-t border-border py-2">
-          <Link href="/settings"
-            className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
-            <SettingsIcon />
-            설정
-          </Link>
-          <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`${navItemBase} w-full ${isActive('/settings') || isActive('/admin') ? navItemActive : navItemInactive}`}>
+                <SettingsIcon />
+                설정
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-52">
+              <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">일반</p>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/suno-accounts" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  Suno 계정관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/keys" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  나의 키관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">관리</p>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/system" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  시스템정보 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  회원권한 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  Job 큐
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </>
     )
@@ -202,13 +291,6 @@ function SideNavContent({ email }: { email: string }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
               </svg>
             </button>
-          </div>
-
-          <div className="flex justify-center py-2 border-b border-border">
-            <Link href="/generate" title="노래 만들기"
-              className="w-8 h-8 rounded-lg flex items-center justify-center bg-foreground text-background text-sm hover:opacity-80 transition-opacity">
-              ♪
-            </Link>
           </div>
 
           <div className="flex-1 overflow-y-auto min-h-0 py-2 flex flex-col items-center gap-1">
@@ -249,20 +331,8 @@ function SideNavContent({ email }: { email: string }) {
 
       {/* 데스크탑 사이드바 */}
       <aside className="hidden md:flex w-64 flex-shrink-0 bg-background border-r border-border flex-col h-full transition-all duration-200">
-        <div className="p-3 border-b border-border flex items-center gap-2">
-          <Link href="/generate"
-            className="flex items-center justify-center gap-2 flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-foreground text-background hover:opacity-80 transition-opacity">
-            노래 만들기
-          </Link>
-          <button onClick={toggleCollapsed} title="메뉴 접기"
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-            </svg>
-          </button>
-        </div>
-
         <div className="flex-1 overflow-y-auto min-h-0 py-2">
+          <p className="text-xs text-muted-foreground truncate px-3 pb-2">{email}</p>
           {sections.map(section => (
             <div key={section.id}>
               <button
@@ -273,7 +343,16 @@ function SideNavContent({ email }: { email: string }) {
                   {section.icon}
                   {section.label}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  {section.id === 'pipeline' && jobCount > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                      </span>
+                      <span className="text-xs font-medium text-blue-500">{jobCount}</span>
+                    </span>
+                  )}
                   <ChevronIcon open={openSections[section.id] ?? false} />
                 </span>
               </button>
@@ -285,12 +364,21 @@ function SideNavContent({ email }: { email: string }) {
                   ) : (
                     section.items.map(item => (
                       <Link key={item.href} href={item.href}
-                        className={`flex items-center px-3 py-2.5 pl-9 text-sm transition-colors ${
+                        className={`flex items-center justify-between px-3 py-2.5 pl-9 text-sm transition-colors ${
                           isActive(item.href)
                             ? 'bg-accent text-foreground border-l-2 border-foreground'
                             : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                         }`}>
                         {item.label}
+                        {item.href === '/admin/queue' && jobCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                            </span>
+                            <span className="text-xs font-medium text-blue-500">{jobCount}</span>
+                          </span>
+                        )}
                       </Link>
                     ))
                   )}
@@ -301,12 +389,44 @@ function SideNavContent({ email }: { email: string }) {
         </div>
 
         <div className="border-t border-border py-2">
-          <Link href="/settings"
-            className={`${navItemBase} ${isActive('/settings') ? navItemActive : navItemInactive}`}>
-            <SettingsIcon />
-            설정
-          </Link>
-          <p className="text-xs text-muted-foreground truncate px-3 pt-1">{email}</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className={`${navItemBase} w-full ${isActive('/settings') || isActive('/admin') ? navItemActive : navItemInactive}`}>
+                <SettingsIcon />
+                설정
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-52">
+              <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">일반</p>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/suno-accounts" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  Suno 계정관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/keys" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  나의 키관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">관리</p>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/system" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  시스템정보 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  회원권한 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  Job 큐
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
     </>

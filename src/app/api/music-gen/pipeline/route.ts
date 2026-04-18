@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     const db = getDb()
     let query = `
-      SELECT pr.*, c.name as channel_name, c.sync_lens_folder,
+      SELECT pr.*, c.channel_name, c.sync_lens_folder,
              COUNT(ps.id) as total_steps,
              SUM(CASE WHEN ps.status = 'completed' THEN 1 ELSE 0 END) as completed_steps
       FROM pipeline_runs pr
@@ -90,10 +90,10 @@ export async function POST(req: NextRequest) {
     const db = getDb()
 
     // channel 조회
-    const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channel_id) as { sync_lens_folder?: string; name: string } | undefined
+    const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channel_id) as { sync_lens_folder?: string; channel_name: string } | undefined
     if (!channel) return NextResponse.json({ error: '채널을 찾을 수 없습니다' }, { status: 404 })
 
-    const channelFolder = channel.sync_lens_folder || channel.name
+    const channelFolder = channel.sync_lens_folder || channel.channel_name
     const syncLensPath = path.join(syncLensRoot, channelFolder, vol_name)
     const songsDir = path.join(syncLensPath, '01_songs')
 

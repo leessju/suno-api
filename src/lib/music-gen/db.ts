@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 
-const dbPath = process.env.MUSIC_GEN_DB_PATH ?? './data/music-gen.db';
+const dbPath = process.env.DB_PATH ?? './data/music-gen.db';
 
 // Next.js dev hot-reload 시 모듈이 재평가돼도 DB 연결을 재사용하기 위해
 // global 객체에 싱글톤을 보존 (process 수준 단일 연결 보장)
@@ -251,5 +251,109 @@ function runMigrations(db: Database.Database): void {
   }
   if (!channelColsSync.some(c => c.name === 'youtube_token_path')) {
     db.exec('ALTER TABLE channels ADD COLUMN youtube_token_path TEXT;');
+  }
+
+  // 017-patch: draft_songs.original_ratio 컬럼 추가
+  const draftSongCols = db.pragma('table_info(draft_songs)') as Array<{ name: string }>;
+  if (!draftSongCols.some(c => c.name === 'original_ratio')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN original_ratio INTEGER;');
+  }
+
+  // 018-patch: draft_songs.rating 컬럼 추가 (0~5 별점)
+  if (!draftSongCols.some(c => c.name === 'rating')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN rating INTEGER NOT NULL DEFAULT 0;');
+  }
+
+  // 019-patch: draft_songs.style_weight, weirdness 컬럼 추가 (0~100 정수, Suno에 /100으로 전달)
+  if (!draftSongCols.some(c => c.name === 'style_weight')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN style_weight INTEGER;');
+  }
+  if (!draftSongCols.some(c => c.name === 'weirdness')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN weirdness INTEGER;');
+  }
+
+  // 021-patch: draft_songs.vocal_gender 컬럼 추가 ('f'|'m'|null)
+  if (!draftSongCols.some(c => c.name === 'vocal_gender')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN vocal_gender TEXT;');
+  }
+
+  // 022-patch: midi_draft_rows.vocal_gender 컬럼 추가 ('f'|'m'|null)
+  const draftRowCols = db.pragma('table_info(midi_draft_rows)') as Array<{ name: string }>;
+  if (!draftRowCols.some(c => c.name === 'vocal_gender')) {
+    db.exec('ALTER TABLE midi_draft_rows ADD COLUMN vocal_gender TEXT;');
+  }
+
+  // 020-patch: draft_songs.waveform_data 컬럼 추가 (JSON 문자열로 캐시)
+  if (!draftSongCols.some(c => c.name === 'waveform_data')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN waveform_data TEXT;');
+  }
+
+  // 023-patch: back_images.thumbnail_r2_key 컬럼 추가
+  const backImageCols = db.pragma('table_info(back_images)') as Array<{ name: string }>;
+  if (!backImageCols.some(c => c.name === 'thumbnail_r2_key')) {
+    db.exec('ALTER TABLE back_images ADD COLUMN thumbnail_r2_key TEXT;');
+  }
+
+  // 024-patch: job_queue.progress 컬럼 추가 (렌더 파이프라인 진행률)
+  const jobQueueCols = db.pragma('table_info(job_queue)') as Array<{ name: string }>;
+  if (!jobQueueCols.some(c => c.name === 'progress')) {
+    db.exec('ALTER TABLE job_queue ADD COLUMN progress TEXT;');
+  }
+
+  // 025: user_api_keys 테이블 (IF NOT EXISTS — 멱등)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_api_keys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+      key_type TEXT NOT NULL,
+      key_value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      UNIQUE(user_id, key_type)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_api_keys_user_id ON user_api_keys(user_id);
+  `);
+
+  // 026: gemini_accounts 테이블 — Gemini API 키 그룹 관리 (우선순위 + rate-limit fallback)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gemini_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('gemini-api', 'vertex-ai-apikey')),
+      api_key TEXT NOT NULL,
+      project TEXT,
+      location TEXT DEFAULT 'us-central1',
+      priority INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      UNIQUE(user_id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gemini_accounts_user_id ON gemini_accounts(user_id);
+  `);
+
+  // 018: youtube_oauth_tokens 테이블 — YouTube OAuth 토큰 DB 저장 (파일 → DB 전환)
+  const migration018 = fs.readFileSync(
+    path.join(base, 'migrations/018_youtube_oauth_tokens.sql'),
+    'utf-8',
+  );
+  db.exec(migration018);
+
+  // 027: render_image_usage 테이블 — 렌더 배경이미지 사용 이력 (균등 분배용)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS render_image_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      channel_id INTEGER NOT NULL,
+      back_image_id INTEGER NOT NULL,
+      image_category TEXT NOT NULL CHECK(image_category IN ('thumbnail', 'video')),
+      used_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_render_image_usage_channel
+      ON render_image_usage(channel_id, image_category);
+  `);
+
+  // 027-patch: draft_songs.render_bg_key 컬럼 (렌더용 배경이미지 r2_key)
+  if (!draftSongCols.some(c => c.name === 'render_bg_key')) {
+    db.exec('ALTER TABLE draft_songs ADD COLUMN render_bg_key TEXT;');
   }
 }

@@ -18,7 +18,7 @@ export async function PATCH(
 
     const body = await req.json().catch(() => ({}))
 
-    const allowed = ['is_confirmed', 'sort_order', 'custom_image_key'] as const
+    const allowed = ['is_confirmed', 'sort_order', 'custom_image_key', 'rating'] as const
     type AllowedKey = typeof allowed[number]
 
     const sets: string[] = []

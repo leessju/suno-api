@@ -15,8 +15,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // 내부 워커 API 통과 (인증 불필요)
+  if (pathname.startsWith('/api/internal')) {
+    return NextResponse.next()
+  }
+
   // 기존 Suno API routes 통과 (하위 호환)
-  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/music-gen') && !pathname.startsWith('/api/internal')) {
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/music-gen')) {
     return NextResponse.next()
   }
 

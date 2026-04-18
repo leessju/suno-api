@@ -43,7 +43,14 @@ export async function POST(
       updated_at: workspace.ch_updated_at as string,
     }
 
-    const { content, model } = await generateContent(channel, emotion_input, null)
+    // 이전 제목 조회 (제목 반복 방지)
+    const existingTitles = (db.prepare(`
+      SELECT DISTINCT title_en FROM midi_draft_rows
+      WHERE workspace_midi_id IN (SELECT id FROM workspace_midis WHERE workspace_id = ?)
+        AND title_en IS NOT NULL AND title_en != ''
+    `).all(id) as { title_en: string }[]).map(r => r.title_en)
+
+    const { content, model } = await generateContent(channel, emotion_input, null, existingTitles)
 
     return ok({ content, model }, 201)
   } catch (e) {

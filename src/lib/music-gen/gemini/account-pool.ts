@@ -147,7 +147,7 @@ export class AccountPool {
     messages: Array<{ role: string; content: string }>,
     model?: string,
   ): Promise<string> {
-    const resolvedModel = model ?? process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const resolvedModel = model ?? getGeminiModel('gemini-2.0-flash');
     let attempts = 0;
 
     while (attempts < this.accounts.length) {
@@ -286,7 +286,7 @@ export class AccountPool {
       'gemini-3-flash-preview':   'gemini-2.5-flash', // 404 on aiplatform.googleapis.com
       'gemini-3.0-flash-preview': 'gemini-2.5-flash', // 404 확인
     };
-    const requestedModel = opts.model ?? process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+    const requestedModel = opts.model ?? getGeminiModel('gemini-2.5-flash');
     const isVertex = account.type === 'vertex-ai' || account.type === 'vertex-ai-apikey';
     const model =
       isVertex && VERTEX_AI_FALLBACK[requestedModel]
@@ -355,15 +355,101 @@ export class AccountPool {
   }
 }
 
+// ── Gemini Model ─────────────────────────────────────────────────────────────
+
+let _cachedModel: string | null = null;
+let _modelCachedAt = 0;
+
+/** DB(gem_global_settings) → env → 기본값 순서로 Gemini 모델명 조회 */
+export function getGeminiModel(fallback = 'gemini-2.5-flash'): string {
+  if (_cachedModel && Date.now() - _modelCachedAt < 30_000) return _cachedModel;
+  try {
+    const { getDb } = require('@/lib/music-gen/db');
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM gem_global_settings WHERE key = 'gemini_model'").get() as { value: string } | undefined;
+    if (row?.value) {
+      _cachedModel = row.value;
+      _modelCachedAt = Date.now();
+      return row.value;
+    }
+  } catch { /* DB 조회 실패 시 env 폴백 */ }
+  const envModel = process.env.GEMINI_MODEL;
+  if (envModel) return envModel;
+  return fallback;
+}
+
 // ── Singleton ─────────────────────────────────────────────────────────────────
 
 let _pool: AccountPool | null = null;
+let _poolBuiltAt = 0;
+const POOL_TTL_MS = 30_000; // 30초마다 DB에서 갱신
+
+/**
+ * DB의 gemini_accounts 테이블에서 활성 계정 목록을 로드.
+ * 모든 유저의 키를 로드 — 이 시스템은 싱글 테넌트(2-10명 공유 도구)이므로
+ * 키는 전역 공유 리소스로 취급. user_id는 API 소유권 관리용.
+ */
+function loadAccountsFromDb(): AccountConfig[] | null {
+  try {
+    const { getDb } = require('@/lib/music-gen/db');
+    const db = getDb();
+    const rows = db
+      .prepare(
+        'SELECT type, name, api_key, project, location FROM gemini_accounts WHERE is_active = 1 ORDER BY priority ASC, id ASC',
+      )
+      .all() as Array<{
+      type: string;
+      name: string;
+      api_key: string;
+      project: string | null;
+      location: string | null;
+    }>;
+
+    if (rows.length === 0) return null;
+
+    return rows.map((r) => {
+      if (r.type === 'vertex-ai-apikey') {
+        return {
+          type: 'vertex-ai-apikey' as const,
+          name: r.name,
+          project: r.project ?? '',
+          location: r.location ?? 'us-central1',
+          apiKey: r.api_key,
+        };
+      }
+      return {
+        type: 'gemini-api' as const,
+        name: r.name,
+        apiKey: r.api_key,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** 키 변경 시 풀 캐시를 강제 무효화 */
+export function invalidateAccountPool(): void {
+  _pool = null;
+  _poolBuiltAt = 0;
+}
 
 export function getAccountPool(): AccountPool {
-  if (_pool) return _pool;
+  // TTL 기반 캐시 — 키 추가/삭제 시 최대 30초 내 반영
+  if (_pool && Date.now() - _poolBuiltAt < POOL_TTL_MS) {
+    return _pool;
+  }
 
+  // 1순위: DB (gemini_accounts 테이블)
+  const dbAccounts = loadAccountsFromDb();
+  if (dbAccounts && dbAccounts.length > 0) {
+    _pool = new AccountPool(dbAccounts);
+    _poolBuiltAt = Date.now();
+    return _pool;
+  }
+
+  // 2순위: accounts.json → DB 자동 마이그레이션 (레거시 호환)
   const accountsPath = process.env.MUSIC_GEN_ACCOUNTS_PATH;
-
   if (accountsPath) {
     let raw: unknown;
     try {
@@ -379,15 +465,56 @@ export function getAccountPool(): AccountPool {
         `Invalid accounts.json schema: ${parsed.error.message}`,
       );
     }
+
+    // DB에 키가 없으면 accounts.json → DB로 자동 마이그레이션
+    try {
+      const { getDb } = require('@/lib/music-gen/db');
+      const db = getDb();
+      const count = db.prepare("SELECT COUNT(*) as cnt FROM gemini_accounts WHERE user_id = 'system'").get() as { cnt: number };
+      if (count.cnt === 0) {
+        const now = Math.floor(Date.now() / 1000);
+        const insert = db.prepare(`
+          INSERT OR IGNORE INTO gemini_accounts (user_id, name, type, api_key, project, location, priority, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (let i = 0; i < parsed.data.accounts.length; i++) {
+          const acc = parsed.data.accounts[i];
+          insert.run(
+            'system',
+            acc.name,
+            acc.type === 'vertex-ai-apikey' ? 'vertex-ai-apikey' : 'gemini-api',
+            'apiKey' in acc ? acc.apiKey : '',
+            'project' in acc ? acc.project : null,
+            'location' in acc ? acc.location : 'us-central1',
+            i,
+            now,
+            now,
+          );
+        }
+        console.log(`[account-pool] accounts.json → DB 마이그레이션 완료 (${parsed.data.accounts.length}개)`);
+        // 마이그레이션 후 DB에서 다시 로드
+        const migrated = loadAccountsFromDb();
+        if (migrated && migrated.length > 0) {
+          _pool = new AccountPool(migrated);
+          _poolBuiltAt = Date.now();
+          return _pool;
+        }
+      }
+    } catch {
+      // 마이그레이션 실패 시 accounts.json으로 계속 진행
+    }
+
     _pool = new AccountPool(parsed.data.accounts);
+    _poolBuiltAt = Date.now();
     return _pool;
   }
 
-  // Fallback: single GEMINI_API_KEY
+  // 3순위: GEMINI_API_KEY 환경변수
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY_MISSING');
   }
   _pool = new AccountPool([{ type: 'gemini-api', name: 'default', apiKey }]);
+  _poolBuiltAt = Date.now();
   return _pool;
 }

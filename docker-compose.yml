@@ -9,3 +9,20 @@ services:
     ports:
       - "3000:3000"
     env_file: ".env"
+    depends_on:
+      - selenium
+    environment:
+      - SELENIUM_URL=http://selenium:4444
+      - NOVNC_URL=http://selenium:7900
+
+  selenium:
+    image: selenium/standalone-chromium
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    shm_size: 2g
+    environment:
+      - SE_VNC_NO_PASSWORD=true
+      - SE_SCREEN_WIDTH=1280
+      - SE_SCREEN_HEIGHT=720
+      - SE_NODE_MAX_SESSIONS=5

@@ -5,11 +5,12 @@ import {
   DeleteObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
+import { getSystemSetting } from '@/lib/music-gen/system-settings';
 
 function getClient(): S3Client {
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const endpoint = process.env.R2_ENDPOINT;
+  const accessKeyId = getSystemSetting('r2_access_key_id');
+  const secretAccessKey = getSystemSetting('r2_secret_access_key');
+  const endpoint = getSystemSetting('r2_endpoint');
 
   if (!accessKeyId) throw new Error('R2_ACCESS_KEY_ID is not set');
   if (!secretAccessKey) throw new Error('R2_SECRET_ACCESS_KEY is not set');
@@ -23,7 +24,7 @@ function getClient(): S3Client {
 }
 
 function getBucket(): string {
-  const bucket = process.env.R2_BUCKET_NAME;
+  const bucket = getSystemSetting('r2_bucket_name');
   if (!bucket) throw new Error('R2_BUCKET_NAME is not set');
   return bucket;
 }

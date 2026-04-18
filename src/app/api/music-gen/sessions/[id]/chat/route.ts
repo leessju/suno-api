@@ -81,7 +81,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Call Gemini via AccountPool
     const pool = getAccountPool();
-    const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+    const { getGeminiModel } = require('@/lib/music-gen/gemini/account-pool');
+    const model = getGeminiModel('gemini-2.0-flash');
 
     let assistantText: string;
     try {

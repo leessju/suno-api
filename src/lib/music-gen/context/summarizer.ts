@@ -22,7 +22,8 @@ export async function summarizeSession(sessionId: string): Promise<void> {
   if (unsummarized.length === 0) return;
 
   const pool = getAccountPool();
-  const model = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
+  const { getGeminiModel } = require('@/lib/music-gen/gemini/account-pool');
+  const model = getGeminiModel('gemini-2.0-flash');
 
   // Build summarizer prompt — constraints_json is NEVER included (managed separately)
   const priorSummary = session.summary

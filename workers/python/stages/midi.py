@@ -69,7 +69,9 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
             conn.close()
 
     midi_cover_script = ROOT / 'scripts' / 'midi_cover.py'
-    output_dir = ROOT / 'data' / 'midi' / workspace_id
+    # workspace_midi_id별로 격리된 디렉토리 사용 (덮어쓰기 방지)
+    midi_subdir = workspace_midi_id or 'default'
+    output_dir = ROOT / 'data' / 'midi' / workspace_id / midi_subdir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # midi_cover.py는 Step 4~6(Suno 연동)까지 포함하므로
@@ -132,7 +134,7 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
         try:
             midi_r2_key = upload_file(
                 midi_path,
-                f'audio/{workspace_id}/{midi_id}/original.mid',
+                f'origin_songs/{workspace_id}/{midi_id}/original.mid',
                 'audio/midi',
             )
             logger.info(f"MIDI R2 업로드 완료: {midi_r2_key}")
@@ -143,7 +145,7 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
             try:
                 mp3_r2_key = upload_file(
                     mp3_path,
-                    f'audio/{workspace_id}/{midi_id}/chords.mp3',
+                    f'origin_songs/{workspace_id}/{midi_id}/chords.mp3',
                     'audio/mpeg',
                 )
                 logger.info(f"chords.mp3 R2 업로드 완료: {mp3_r2_key}")
@@ -165,7 +167,7 @@ async def handle_midi_convert(payload: dict, db_path: str = './data/music-gen.db
             try:
                 source_audio_r2_key = upload_file(
                     source_local_path,
-                    f'audio/{workspace_id}/{midi_id}/source.mp3',
+                    f'origin_songs/{workspace_id}/{midi_id}/source.mp3',
                     'audio/mpeg',
                 )
                 logger.info(f"source.mp3 R2 업로드 완료: {source_audio_r2_key}")

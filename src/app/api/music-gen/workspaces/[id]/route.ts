@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const midis = db.prepare(`
       SELECT wm.*, mm.bpm, mm.key_signature, mm.chord_json,
-             (SELECT COUNT(*) FROM workspace_tracks wt WHERE wt.workspace_midi_id = wm.id) as track_count
+             (SELECT COUNT(*) FROM draft_songs ds JOIN midi_draft_rows mdr ON ds.draft_row_id = mdr.id WHERE mdr.workspace_midi_id = wm.id AND ds.status = 'done') as cover_count
       FROM workspace_midis wm
       LEFT JOIN midi_masters mm ON mm.id = wm.midi_master_id
       WHERE wm.workspace_id = ?
@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const parsed = UpdateWorkspaceSchema.safeParse(body)
     if (!parsed.success) return err('VALIDATION_ERROR', parsed.error.message, 400)
 
-    const { name, channel_id, pipeline_mode } = parsed.data
+    const { name, channel_id, pipeline_mode, suno_project_id } = parsed.data
     const now = Date.now()
     const sets: string[] = ['updated_at = ?']
     const vals: unknown[] = [now]
@@ -62,6 +62,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (name !== undefined) { sets.push('name = ?'); vals.push(name) }
     if (channel_id !== undefined) { sets.push('channel_id = ?'); vals.push(channel_id) }
     if (pipeline_mode !== undefined) { sets.push('pipeline_mode = ?'); vals.push(pipeline_mode) }
+    if (suno_project_id !== undefined) { sets.push('suno_project_id = ?'); vals.push(suno_project_id) }
 
     vals.push(id)
     db.prepare(`UPDATE workspaces SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
@@ -81,7 +82,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             "UPDATE workspaces SET suno_sync_status = 'synced', suno_synced_at = ? WHERE id = ?"
           ).run(Date.now(), id)
         }
-      } catch {
+      } catch (syncErr) {
+        console.error('[workspace-patch] Suno 이름 싱크 실패:', syncErr)
         db.prepare(
           "UPDATE workspaces SET suno_sync_status = 'sync_failed' WHERE id = ?"
         ).run(id)

@@ -1,7 +1,7 @@
 import { ChannelWithPersona } from '../repositories/channels';
 import { GeneratedContent, generatedContentSchema } from '../persona/output-schema';
 import { validateForbiddenWords, validateLyrics } from '../persona/validators';
-import { getAccountPool } from './account-pool';
+import { getAccountPool, getGeminiModel } from './account-pool';
 import { buildSystemPrompt, buildUserPrompt } from './prompt-builder';
 import { MediaAnalysis } from '../media/analyzer';
 
@@ -22,11 +22,47 @@ const GENERATED_CONTENT_SCHEMA = {
     title_en:            { type: 'string' },
     title_jp:            { type: 'string' },
     lyrics:              { type: 'string' },
-    narrative:           { type: 'string', description: '한국어 20자 이내 곡 분위기 요약' },
+    narrative:           { type: 'string', description: 'English, max 10 words, short mood summary' },
     suno_style_prompts:  { type: 'array', items: { type: 'string' }, minItems: 5, maxItems: 5 },
     total_duration_sec:  { type: 'number' },
   },
 };
+
+/**
+ * Gemini 가사 후처리: 한국어 조사→일본어 조사 자동 교정 + 섹션 태그 줄바꿈
+ */
+function sanitizeLyrics(lyrics: string): string {
+  let fixed = lyrics
+  // 한국어 조사 → 일본어 조사 (CJK 문자 뒤에 붙은 경우)
+  const particleMap: [RegExp, string][] = [
+    [/가(?=[,\s\u3000-\u9FFF])/g, 'が'],
+    [/의(?=[,\s\u3000-\u9FFF])/g, 'の'],
+    [/을(?=\s|,|[^\u0000-\u007F])/g, 'を'],
+    [/를(?=\s|,|[^\u0000-\u007F])/g, 'を'],
+    [/에(?=[,\s\u3000-\u9FFF])/g, 'に'],
+    [/는(?=\s|,|[^\u0000-\u007F])/g, 'は'],
+    [/도(?=\s|,|[^\u0000-\u007F])/g, 'も'],
+    [/와(?=\s|,|[^\u0000-\u007F])/g, 'と'],
+  ]
+  for (const [pattern, replacement] of particleMap) {
+    fixed = fixed.replace(pattern, replacement)
+  }
+
+  // 후리가나 안의 한글 → 히라가나 (흔한 혼동)
+  fixed = fixed.replace(/독/g, 'どく').replace(/독/g, 'どく')
+
+  // 최종 방어: 남은 한글 문자(가-힣) 모두 제거
+  fixed = fixed.replace(/[\uAC00-\uD7AF]/g, '')
+  // 빈 줄 정리 (한글 제거로 생긴 빈 공백)
+  fixed = fixed.replace(/  +/g, ' ').replace(/^ +| +$/gm, '')
+
+  // 섹션 태그가 줄바꿈 없이 연결된 경우 → 줄바꿈 추가
+  fixed = fixed.replace(/\]\s*\[/g, ']\n[')
+  // 태그 앞에 줄바꿈이 없으면 추가
+  fixed = fixed.replace(/([^\n])\[([A-Z])/g, '$1\n[$2')
+
+  return fixed
+}
 
 export class ValidationError extends Error {
   constructor(code: string) {
@@ -39,9 +75,10 @@ export async function generateContent(
   channel: ChannelWithPersona,
   emotionInput: string,
   mediaAnalysis?: MediaAnalysis | null,
+  existingTitles: string[] = [],
 ): Promise<{ content: GeneratedContent; model: string }> {
   const pool = getAccountPool();
-  const baseModel = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+  const baseModel = getGeminiModel('gemini-2.5-flash');
   const profile = PROFILES.creative_lyrics;
   const useFinalPolish = process.env.MUSIC_GEN_POLISH === '1';
   const model = useFinalPolish ? (PROFILES.final_polish.model ?? baseModel) : baseModel;
@@ -61,7 +98,7 @@ export async function generateContent(
     console.log(`${tag} attempt ${attempt}/3 시작${failureReason ? ` — 이전 실패: ${failureReason}` : ''}`);
 
     const systemPrompt = buildSystemPrompt(channel);
-    const userPrompt = buildUserPrompt(emotionInput, previousFailedOutput, failureReason, mediaAnalysis ?? undefined);
+    const userPrompt = buildUserPrompt(emotionInput, previousFailedOutput, failureReason, mediaAnalysis ?? undefined, undefined, existingTitles);
 
     let rawText: string;
     try {
@@ -100,6 +137,9 @@ export async function generateContent(
       console.error(`${tag} attempt ${attempt}/3 실패 — ${failureReason}`);
       continue;
     }
+
+    // 가사 후처리: 한국어 조사 교정 + 태그 줄바꿈
+    validated.data.lyrics = sanitizeLyrics(validated.data.lyrics);
 
     const fw = validateForbiddenWords(validated.data.lyrics, forbiddenWords);
     if (!fw.valid) {

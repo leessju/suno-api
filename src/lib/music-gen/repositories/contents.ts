@@ -51,6 +51,19 @@ export function listByChannel(channelId: number, limit = 20, offset = 0): Conten
   `).all(channelId, limit, offset) as Content[];
 }
 
+export function findRecentTitlesByChannel(channelId: number, limit = 50): string[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT DISTINCT c.title_en
+    FROM contents c
+    JOIN content_channels cc ON cc.content_id = c.id
+    WHERE cc.channel_ref_id = ? AND c.title_en IS NOT NULL AND c.title_en != ''
+    ORDER BY c.created_at DESC
+    LIMIT ?
+  `).all(channelId, limit) as { title_en: string }[];
+  return rows.map(r => r.title_en);
+}
+
 export function linkToChannel(contentId: number, channelRefId: number): void {
   const db = getDb();
   db.prepare(

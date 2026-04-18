@@ -23,7 +23,7 @@ export async function PATCH(
     const allowed = [
       'title_en', 'title_jp', 'lyrics', 'narrative',
       'suno_style_prompts', 'selected_style', 'image_key',
-      'original_ratio', 'status', 'error_msg', 'made_title', 'made_title_video',
+      'original_ratio', 'vocal_gender', 'status', 'error_msg', 'made_title', 'made_title_video',
     ] as const
     type AllowedKey = typeof allowed[number]
 
@@ -58,6 +58,19 @@ export async function DELETE(
   try {
     const { midiId, draftId } = await params
     const db = getDb()
+
+    // 관련 job_queue 정리 (pending/processing 상태의 draft_song.generate/poll)
+    const songIds = db.prepare(
+      'SELECT id FROM draft_songs WHERE draft_row_id = ?'
+    ).all(draftId) as { id: string }[]
+    if (songIds.length > 0) {
+      const ids = songIds.map(s => s.id)
+      // payload에 해당 draft_row_id나 draft_song_ids가 포함된 pending job 삭제
+      db.prepare(
+        `DELETE FROM job_queue WHERE status IN ('pending','processing') AND (payload LIKE ? OR payload LIKE ?)`
+      ).run(`%${draftId}%`, `%${ids[0]}%`)
+    }
+
     const result = db.prepare(
       'DELETE FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ?'
     ).run(draftId, midiId)

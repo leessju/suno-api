@@ -23,6 +23,7 @@ export const UpdateWorkspaceSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   pipeline_mode: PipelineModeSchema.optional(),
   channel_id: z.number().int().positive().optional(),
+  suno_project_id: z.string().nullable().optional(),
 })
 
 export const CreateWorkspaceMidiSchema = z.object({
@@ -39,6 +40,7 @@ export const UpdateWorkspaceMidiSchema = z.object({
   gen_mode: GenModeSchema.optional(),
   original_ratio: z.number().int().min(0).max(100).optional(),
   status: WorkspaceMidiStatusSchema.optional(),
+  suno_cover_clip_id: z.string().nullable().optional(),
 })
 
 export const WorkspaceMidiSchema = z.object({

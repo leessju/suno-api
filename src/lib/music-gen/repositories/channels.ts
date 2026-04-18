@@ -43,7 +43,7 @@ export function findById(id: number): ChannelWithPersona | undefined {
 export function findByYoutubeId(youtubeChannelId: string): ChannelWithPersona | undefined {
   const db = getDb();
   return db
-    .prepare('SELECT * FROM channels WHERE youtube_channel_id = ?')
+    .prepare('SELECT * FROM channels WHERE LOWER(youtube_channel_id) = LOWER(?)')
     .get(youtubeChannelId) as ChannelWithPersona | undefined;
 }
 

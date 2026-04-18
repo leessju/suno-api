@@ -184,7 +184,7 @@ export default function UploadPage({ params }: { params: { id: string } }) {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {new Date(result.created_at).toLocaleString('ko-KR')}
+              {((d) => `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)(new Date(result.created_at))}
             </p>
           </div>
         ))}

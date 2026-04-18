@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = db.prepare(`
-      SELECT wm.*, w.name as workspace_name
+      SELECT wm.*, w.name as workspace_name,
+        (SELECT COUNT(*) FROM draft_songs ds JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id WHERE mdr.workspace_midi_id = wm.id) as cover_count,
+        (SELECT COUNT(*) FROM draft_songs ds JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id WHERE mdr.workspace_midi_id = wm.id AND ds.is_confirmed = 1) as confirmed_count
       FROM workspace_midis wm
       LEFT JOIN workspaces w ON w.id = wm.workspace_id
       WHERE ${conditions.join(' AND ')}

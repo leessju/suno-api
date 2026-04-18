@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -155,25 +156,41 @@ function MusicAnalysisPromptTab() {
   );
 }
 
+const TAB_LABELS: Record<'keys' | 'telegram' | 'music-prompt', string> = {
+  keys: '나의 키관리',
+  telegram: '텔레그램 설정',
+  'music-prompt': '음악 분석 프롬프트',
+};
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'telegram' | 'music-prompt'>('telegram');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'keys' | 'telegram' | 'music-prompt'>('keys');
+
+  function handleTab(tab: 'keys' | 'telegram' | 'music-prompt') {
+    if (tab === 'keys') {
+      router.push('/settings/keys');
+    } else {
+      setActiveTab(tab);
+    }
+  }
 
   return (
     <div className="w-full">
       <h1 className="text-xl font-semibold text-foreground mb-6">설정</h1>
 
       <div className="flex gap-0 mb-6 border-b border-border overflow-x-auto">
-        {(['telegram', 'music-prompt'] as const).map(tab => (
+        {(['keys', 'telegram', 'music-prompt'] as const).map(tab => (
           <Button
             key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            variant="ghost"
+            onClick={() => handleTab(tab)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 rounded-none transition-colors ${
               activeTab === tab
-                ? 'border-foreground text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-foreground text-foreground bg-transparent hover:bg-transparent'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-transparent'
             }`}
           >
-            {tab === 'telegram' ? '텔레그램 설정' : '음악 분석 프롬프트'}
+            {TAB_LABELS[tab]}
           </Button>
         ))}
       </div>

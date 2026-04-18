@@ -20,11 +20,19 @@ export async function GET(
       );
     }
 
-    const contentType = r2Res.headers.get('content-type') ?? 'application/octet-stream';
+    const filename = key.split('/').pop() ?? 'file';
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    const mimeMap: Record<string, string> = {
+      mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+      json: 'application/json', txt: 'text/plain',
+    };
+    const contentType = mimeMap[ext] ?? r2Res.headers.get('content-type') ?? 'application/octet-stream';
     const contentLength = r2Res.headers.get('content-length');
 
     const headers: Record<string, string> = {
       'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${filename}"`,
       ...corsHeaders,
     };
     if (contentLength) {

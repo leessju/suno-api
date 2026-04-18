@@ -17,6 +17,9 @@ interface Midi {
   source_ref: string | null
   label: string | null
   status: string
+  cover_image: string | null
+  cover_count: number
+  confirmed_count: number
   created_at: number
 }
 
@@ -113,7 +116,7 @@ function AddMidiModal({
     >
       <div className="bg-background rounded-xl shadow-xl w-full max-w-md mx-4 p-6 flex flex-col" style={{ height: '600px' }}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-semibold text-foreground">새 MIDI 추가</h2>
+          <h2 className="text-base font-semibold text-foreground">원곡 추가</h2>
           <Button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</Button>
         </div>
 
@@ -255,71 +258,6 @@ function AddMidiModal({
   )
 }
 
-function WorkspaceCombobox({
-  workspaces,
-  value,
-  onChange,
-}: {
-  workspaces: Workspace[]
-  value: string
-  onChange: (id: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const selected = workspaces.find(ws => ws.id === value)
-
-  return (
-    <div ref={ref} className="relative">
-      <Button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 border border-input rounded-md px-2.5 py-1.5 text-sm bg-background text-foreground hover:border-ring/50 focus:outline-none focus:ring-1 focus:ring-ring transition-colors min-w-[140px] max-w-[220px]"
-      >
-        <span className="truncate flex-1 text-left">{selected ? selected.name : '전체'}</span>
-        <svg className={`w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </Button>
-
-      {open && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-background border border-border rounded-lg shadow-lg py-1 min-w-[180px] max-h-72 overflow-y-auto">
-          <Button
-            type="button"
-            onClick={() => { onChange(''); setOpen(false) }}
-            className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors ${!value ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
-          >
-            <span className="flex-1 text-left">전체</span>
-            {!value && <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-          </Button>
-          {workspaces.map(ws => {
-            const isSelected = ws.id === value
-            return (
-              <Button
-                key={ws.id}
-                type="button"
-                onClick={() => { onChange(ws.id); setOpen(false) }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors ${isSelected ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
-              >
-                <span className="flex-1 text-left truncate">{ws.name}</span>
-                {isSelected && <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-              </Button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function MidisPage() {
   const [midis, setMidis] = useState<Midi[]>([])
   const [loading, setLoading] = useState(true)
@@ -371,14 +309,14 @@ export default function MidisPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">미디파일</h1>
-          <p className="text-sm text-muted-foreground mt-1">전체 워크스페이스의 MIDI 파일 목록</p>
+          <h1 className="text-xl font-semibold text-foreground">원곡</h1>
+          <p className="text-sm text-muted-foreground mt-1">전체 워크스페이스의 원곡 목록</p>
         </div>
         <Button
           onClick={() => setShowAdd(true)}
           className="px-4 py-2 rounded-lg text-sm font-medium text-primary-foreground bg-primary hover:opacity-90 transition-opacity w-full sm:w-auto"
         >
-          MIDI 추가
+          원곡 추가
         </Button>
       </div>
 
@@ -394,11 +332,15 @@ export default function MidisPage() {
       {workspaces.length > 0 && (
         <div className="flex items-center gap-2">
           <label className="text-xs text-muted-foreground flex-shrink-0">워크스페이스</label>
-          <WorkspaceCombobox
-            workspaces={workspaces}
-            value={filterWorkspaceId}
-            onChange={setFilterWorkspaceId}
-          />
+          <Select value={filterWorkspaceId || '__all__'} onValueChange={v => setFilterWorkspaceId(v === '__all__' ? '' : v)}>
+            <SelectTrigger className="h-8 text-sm w-auto min-w-[160px]">
+              <SelectValue placeholder="전체" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">전체</SelectItem>
+              {workspaces.map(ws => <SelectItem key={ws.id} value={ws.id}>{ws.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -407,26 +349,59 @@ export default function MidisPage() {
           {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-accent rounded-lg animate-pulse" />)}
         </div>
       ) : midis.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">미디 파일이 없습니다.</div>
+        <div className="text-center py-12 text-muted-foreground">원곡이 없습니다.</div>
       ) : (
         <div className="space-y-1.5">
-          {midis.map(m => (
-            <Link
-              key={m.id}
-              href={`/workspaces/${m.workspace_id}/midis/${m.id}`}
-              className="flex items-center gap-4 bg-background border border-border rounded-lg px-4 py-3 hover:border-foreground/30 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {m.label ?? m.source_ref ?? m.id}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{m.workspace_name} · {m.source_type}</p>
-              </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[m.status] ?? statusColor.pending}`}>
-                {statusLabel[m.status] ?? m.status}
-              </span>
-            </Link>
-          ))}
+          {midis.map(m => {
+            const date = new Date(m.created_at)
+            const dateStr = `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`
+            return (
+              <Link
+                key={m.id}
+                href={`/workspaces/${m.workspace_id}/midis/${m.id}`}
+                className="flex items-center gap-3 bg-background border border-border rounded-lg px-4 py-3 hover:border-foreground/30 transition-colors"
+              >
+                {/* 썸네일 */}
+                {(() => {
+                  const thumb = getMidiThumbnail(m.source_type, m.source_ref ?? '', m.cover_image)
+                  return thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumb} alt="" className="w-12 h-12 object-cover rounded border border-border flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 bg-accent rounded border border-border flex-shrink-0 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                      </svg>
+                    </div>
+                  )
+                })()}
+
+                {/* 제목 + 워크스페이스 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {m.label ?? m.source_ref ?? m.id}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{m.workspace_name}</p>
+                </div>
+
+                {/* Cover곡 수 */}
+                <div className="hidden sm:flex flex-col items-center flex-shrink-0 min-w-[56px]">
+                  <span className="text-sm font-semibold tabular-nums text-foreground">{m.cover_count}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Cover{m.confirmed_count > 0 && <span className="text-green-500 ml-0.5">({m.confirmed_count})</span>}
+                  </span>
+                </div>
+
+                {/* 날짜 */}
+                <span className="hidden sm:block text-[11px] text-muted-foreground tabular-nums flex-shrink-0">{dateStr}</span>
+
+                {/* 상태 */}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${statusColor[m.status] ?? statusColor.pending}`}>
+                  {statusLabel[m.status] ?? m.status}
+                </span>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

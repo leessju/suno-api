@@ -47,9 +47,9 @@ export async function POST(req: NextRequest) {
 
     const now = Date.now()
     const result = db.prepare(`
-      INSERT INTO suno_accounts (label, cookie, is_active, user_id, created_at)
-      VALUES (?, ?, 1, ?, ?)
-    `).run(label, cookie, user.id, now)
+      INSERT INTO suno_accounts (label, cookie, is_active, user_id, created_at, updated_at)
+      VALUES (?, ?, 1, ?, ?, ?)
+    `).run(label, cookie, user.id, now, now)
 
     const account = db.prepare(
       'SELECT id, user_id, label, is_active, created_at FROM suno_accounts WHERE id = ?'

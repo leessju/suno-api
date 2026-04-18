@@ -36,6 +36,7 @@ export async function POST(
       id: string
       imageKey?: string | null
       originalRatio?: number
+      vocalGender?: string | null
       sortOrder?: number
     }> = body.rows ?? []
 
@@ -43,13 +44,13 @@ export async function POST(
 
     const insert = db.prepare(`
       INSERT OR REPLACE INTO midi_draft_rows
-        (id, workspace_midi_id, image_key, original_ratio, sort_order, status)
-      VALUES (?, ?, ?, ?, ?, 'loading')
+        (id, workspace_midi_id, image_key, original_ratio, vocal_gender, sort_order, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'loading')
     `)
 
     const insertMany = db.transaction((items: typeof rows) => {
       for (const r of items) {
-        insert.run(r.id, midiId, r.imageKey ?? null, r.originalRatio ?? 50, r.sortOrder ?? 0)
+        insert.run(r.id, midiId, r.imageKey ?? null, r.originalRatio ?? 50, r.vocalGender ?? null, r.sortOrder ?? 0)
       }
     })
     insertMany(rows)

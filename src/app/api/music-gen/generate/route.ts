@@ -50,10 +50,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 이전 제목 조회 (제목 반복 방지)
+    const existingTitles = contentsRepo.findRecentTitlesByChannel(channel_id);
+
     const { content: generated, model: geminiModel } = await generateContent(
       channel,
       emotion_input ?? '',
       mediaAnalysis,
+      existingTitles,
     );
 
     // suno_style_prompts 배열 → JSON 문자열로 변환해 DB 저장

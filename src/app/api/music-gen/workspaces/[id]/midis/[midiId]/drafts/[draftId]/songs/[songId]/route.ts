@@ -22,8 +22,8 @@ export async function PATCH(
 
     const allowed = [
       'suno_id', 'suno_v2_id', 'title', 'lyric', 'audio_url', 'image_url',
-      'duration', 'style_used', 'is_confirmed', 'custom_image_key', 'sort_order',
-      'status', 'error_msg',
+      'duration', 'style_used', 'is_confirmed', 'custom_image_key', 'original_ratio', 'sort_order',
+      'status', 'error_msg', 'rating',
     ] as const
     type AllowedKey = typeof allowed[number]
 

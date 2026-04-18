@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const midiId = searchParams.get('midiId')
   const confirmed = searchParams.get('confirmed')  // '' | '1' | '0'
 
-  if (workspaceId !== null || midiId !== null) {
+  {
     try {
       const db = getDb()
       let sql = `
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       if (workspaceId) { sql += ' AND wm.workspace_id = ?'; params.push(workspaceId) }
       if (midiId) { sql += ' AND mdr.workspace_midi_id = ?'; params.push(midiId) }
       if (confirmed !== null && confirmed !== '') { sql += ' AND ds.is_confirmed = ?'; params.push(Number(confirmed)) }
-      sql += ' ORDER BY ds.sort_order ASC, ds.created_at ASC LIMIT 500'
+      sql += ' ORDER BY CASE WHEN ds.is_confirmed = 1 AND ds.sort_order > 0 THEN 0 ELSE 1 END ASC, ds.sort_order ASC, ds.is_confirmed DESC, ds.created_at DESC LIMIT 500'
 
       const songs = db.prepare(sql).all(...params)
       return NextResponse.json({ data: songs })
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       WHERE 1=1
     `
     const params: (string | number)[] = []
-    if (legacyWorkspaceId) { sql += ' AND wt.workspace_id = ?'; params.push(legacyWorkspaceId) }
+    if (legacyWorkspaceId) { sql += ' AND wt.workspace_id = ?'; params.push(String(legacyWorkspaceId)) }
     if (channelId) { sql += ' AND w.channel_id = ?'; params.push(Number(channelId)) }
     if (isChecked !== null && isChecked !== '') { sql += ' AND wt.is_checked = ?'; params.push(Number(isChecked)) }
     if (q) { sql += ' AND wt.suno_track_id LIKE ?'; params.push(`%${q}%`) }

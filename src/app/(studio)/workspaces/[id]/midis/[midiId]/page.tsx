@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useAudioPlayer, type AudioTrack } from '@/components/AudioPlayerProvider'
 import Link from 'next/link'
 import { getMidiThumbnail } from '@/lib/youtube-utils'
 import {
@@ -10,6 +11,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Combobox } from '@/components/ui/combobox'
+import { useSunoAccount } from '@/components/SunoAccountProvider'
 
 interface MidiDetail {
   id: string
@@ -18,6 +20,7 @@ interface MidiDetail {
   source_ref: string | null
   cover_image?: string | null
   audio_url?: string | null
+  suno_cover_clip_id?: string | null
   gen_mode: string
   original_ratio: number
   status: string
@@ -49,6 +52,8 @@ interface DraftSong {
   style_used: string | null
   is_confirmed: number  // 0 | 1 (SQLite INTEGER)
   custom_image_key: string | null
+  original_ratio: number | null
+  rating: number  // 0~5 별점
   sort_order: number
   status: 'pending' | 'processing' | 'done' | 'failed'
   error_msg: string | null
@@ -73,6 +78,7 @@ interface GeneratedRow {
   makingVideo?: boolean
   madeTitle?: string
   madeTitleVideo?: string
+  vocalGender: 'f' | 'm' | ''
   songs: DraftSong[]
 }
 
@@ -91,6 +97,7 @@ interface DbDraftRow {
   error_msg: string | null
   made_title: string | null
   made_title_video: string | null
+  vocal_gender: string | null
   sort_order: number
 }
 
@@ -104,18 +111,67 @@ function dbRowToGeneratedRow(r: DbDraftRow, songs: DraftSong[] = []): GeneratedR
     lyrics: r.lyrics,
     narrative: r.narrative,
     suno_style_prompts: prompts,
-    selectedStyle: r.selected_style,
+    selectedStyle: r.selected_style || prompts[0] || '',
     originalRatio: r.original_ratio,
     imageKey: r.image_key,
     lyricsOpen: false,
     checked: false,
     loading: r.status === 'loading',
     making: r.status === 'making',
-    error: r.error_msg ?? undefined,
+    error: (r.status === 'done' || r.status === 'ready' || r.status === 'making') ? undefined : (r.error_msg ?? undefined),
     madeTitle: r.made_title ?? undefined,
     madeTitleVideo: r.made_title_video ?? undefined,
+    vocalGender: (r.vocal_gender as 'f' | 'm' | '') || '',
     songs,
   }
+}
+
+function WaveformBar({ audioUrl, isDone }: { audioUrl: string | null; isDone: boolean }) {
+  const [bars, setBars] = useState<number[] | null>(null)
+  const fetched = useRef(false)
+
+  useEffect(() => {
+    if (!isDone || !audioUrl || fetched.current) return
+    fetched.current = true
+    fetch(audioUrl)
+      .then(r => r.arrayBuffer())
+      .then(buf => new AudioContext().decodeAudioData(buf))
+      .then(decoded => {
+        const raw = decoded.getChannelData(0)
+        const barCount = 80
+        const step = Math.floor(raw.length / barCount)
+        const sampled = Array.from({ length: barCount }, (_, i) => {
+          let sum = 0
+          for (let j = 0; j < step; j++) sum += Math.abs(raw[i * step + j] ?? 0)
+          return sum / step
+        })
+        const max = Math.max(...sampled, 0.001)
+        setBars(sampled.map(v => v / max))
+      })
+      .catch(() => { setBars([]) })
+  }, [isDone, audioUrl])
+
+  if (!isDone || bars === null) {
+    return <div style={{ width: '250px' }} className="h-8 flex-shrink-0 bg-accent/30 rounded flex items-center justify-center">
+      {isDone ? <span className="text-[9px] text-muted-foreground">waveform 로딩...</span> : null}
+    </div>
+  }
+
+  if (bars.length === 0) {
+    return <div style={{ width: '250px' }} className="h-8 flex-shrink-0" />
+  }
+
+  return (
+    <div style={{ width: '250px' }} className="h-8 flex-shrink-0 flex items-end gap-px rounded overflow-hidden bg-accent/20 px-0.5">
+      {bars.map((v, i) => (
+        <div
+          key={i}
+          className="flex-1 bg-primary/60 rounded-t-sm min-h-[1px]"
+          style={{ height: `${Math.max(v * 100, 4)}%` }}
+        />
+      ))}
+    </div>
+  )
 }
 
 function DraftSongList({
@@ -147,7 +203,28 @@ function DraftSongList({
     }).catch(() => {})
   }
 
-  const deleteSong = async (songId: string) => {
+  const [songDeleteTarget, setSongDeleteTarget] = useState<string | null>(null)
+
+  const setRating = async (song: DraftSong, value: number) => {
+    const newRating = song.rating === value ? 0 : value  // 같은 별 클릭 시 해제
+    onSongUpdate(song.id, { rating: newRating })
+    await fetch(`${basePath}/${song.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: newRating }),
+    }).catch(() => {})
+  }
+
+  const handleSongDeleteClick = (song: DraftSong) => {
+    if (song.suno_id || song.audio_url) {
+      setSongDeleteTarget(song.id)
+      return
+    }
+    executeSongDelete(song.id)
+  }
+
+  const executeSongDelete = async (songId: string) => {
+    setSongDeleteTarget(null)
     onSongDelete(songId)
     await fetch(`${basePath}/${songId}`, { method: 'DELETE' }).catch(() => {})
   }
@@ -159,17 +236,17 @@ function DraftSongList({
         const isFailed = song.status === 'failed'
         const isDone = song.status === 'done'
         const label = `버전 ${String.fromCharCode(65 + idx)}`  // A, B, C...
+        const confirmed = song.is_confirmed === 1
 
         return (
-          <div key={song.id} className="flex items-center gap-2 px-3 py-2 bg-background hover:bg-accent/30 transition-colors">
-            {/* 확정 체크박스 */}
+          <div key={song.id} className={`flex items-center gap-2 px-3 py-2 bg-background hover:bg-accent/30 transition-colors ${confirmed ? 'ring-1 ring-inset ring-green-400/40' : ''}`}>
+            {/* 체크박스 */}
             <input
               type="checkbox"
-              checked={song.is_confirmed === 1}
+              checked={confirmed}
               disabled={isLoading || isFailed}
               onChange={() => toggleConfirm(song)}
-              className="w-3.5 h-3.5 accent-primary flex-shrink-0"
-              title="확정 (영상 만들기 대상)"
+              className="w-4 h-4 accent-primary flex-shrink-0"
             />
 
             {/* 커버 이미지 */}
@@ -178,11 +255,11 @@ function DraftSongList({
               <img
                 src={song.image_url}
                 alt={label}
-                className="w-8 h-8 object-cover rounded flex-shrink-0 border border-border"
+                className="w-10 h-10 object-cover rounded flex-shrink-0 border border-border"
               />
             ) : (
-              <div className="w-8 h-8 bg-accent rounded flex-shrink-0 border border-border flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="w-10 h-10 bg-accent rounded flex-shrink-0 border border-border flex items-center justify-center">
+                <svg className="w-4 h-4 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
                 </svg>
               </div>
@@ -196,40 +273,67 @@ function DraftSongList({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                   </svg>
-                  {label} 생성 중...
+                  {song.title ? <span className="text-foreground font-medium truncate block">{song.title}</span> : `${label} 생성 중...`}
                 </div>
               ) : isFailed ? (
-                <p className="text-[11px] text-red-500">{song.error_msg || `${label} 생성 실패`}</p>
+                <p className="text-[11px] text-red-500 truncate">{song.error_msg || `${label} 실패`}</p>
               ) : (
                 <div>
-                  <p className="text-[11px] font-medium text-foreground truncate">
-                    {song.title || label}
-                    {song.is_confirmed === 1 && (
-                      <span className="ml-1.5 text-[10px] text-green-600 dark:text-green-400 font-normal">● 확정</span>
-                    )}
+                  <p className="text-[11px] font-medium text-foreground truncate">{song.title || label}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {song.duration != null && `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, '0')}`}
+                    {song.duration != null && song.original_ratio != null && ' · '}
+                    {song.original_ratio != null && `${song.original_ratio}%`}
                   </p>
-                  {song.duration && (
-                    <p className="text-[10px] text-muted-foreground">
-                      {Math.floor(song.duration / 60)}:{String(Math.round(song.duration % 60)).padStart(2, '0')}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* 오디오 재생 */}
-            {isDone && song.audio_url && (
-              <audio
-                controls
-                src={song.audio_url}
-                className="h-7 flex-shrink-0"
-                style={{ width: '140px' }}
-              />
+            {/* Waveform */}
+            <WaveformBar audioUrl={song.audio_url} isDone={isDone} />
+
+            {/* 오디오 재생 버튼 */}
+            {isDone && song.audio_url ? (
+              <SongPlayButton song={song} label={song.title || label} />
+            ) : (
+              <div style={{ width: '40px' }} className="flex-shrink-0" />
             )}
+
+            {/* 별점 */}
+            {isDone && (
+              <div className="flex items-center gap-0 flex-shrink-0">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(song, star)}
+                    className="p-0 w-5 h-5 flex items-center justify-center hover:scale-125 transition-transform"
+                    title={`${star}점`}
+                  >
+                    <svg className={`w-3.5 h-3.5 ${star <= (song.rating || 0) ? 'text-yellow-400' : 'text-muted-foreground/40'}`} viewBox="0 0 20 20" fill={star <= (song.rating || 0) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 확정 버튼 */}
+            <button
+              onClick={() => toggleConfirm(song)}
+              disabled={isLoading || isFailed}
+              className={`px-2 py-1 text-[11px] font-medium rounded border transition-colors flex-shrink-0 ${
+                confirmed
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-400/40 hover:bg-green-500/20'
+                  : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-foreground'
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="확정 (영상 만들기 대상)"
+            >
+              {confirmed ? '확정됨' : '확정'}
+            </button>
 
             {/* 삭제 */}
             <button
-              onClick={() => deleteSong(song.id)}
+              onClick={() => handleSongDeleteClick(song)}
               className="p-1 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
               title="삭제"
             >
@@ -240,6 +344,27 @@ function DraftSongList({
           </div>
         )
       })}
+
+      {/* Song 삭제 확인 (suno_id 또는 audio 존재 시) */}
+      <AlertDialog open={!!songDeleteTarget} onOpenChange={open => { if (!open) setSongDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cover곡 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              생성된 Cover곡을 삭제합니다. 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => songDeleteTarget && executeSongDelete(songDeleteTarget)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -265,42 +390,41 @@ const STATUS_ORDER = ['pending', 'converting', 'midi_generating', 'analyzing', '
 export default function MidiDetailPage() {
   const { id, midiId } = useParams<{ id: string; midiId: string }>()
   const router = useRouter()
+  const { refreshCredits } = useSunoAccount()
   const [midi, setMidi] = useState<MidiDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
+  const [draftDeleteTarget, setDraftDeleteTarget] = useState<string | null>(null)
 
   const [analysisOpen, setAnalysisOpen] = useState(false)
 
-  // 음원 만들기 팝업 상태
+
+  // Cover곡 만들기 팝업 상태
   const [showMakePopup, setShowMakePopup] = useState(false)
   const [songCount, setSongCount] = useState(3)
   const [globalRatio, setGlobalRatio] = useState(50)
+  const [globalStyleWeight, setGlobalStyleWeight] = useState(50)
+  const [globalWeirdness, setGlobalWeirdness] = useState(50)
+  const [globalVocalGender, setGlobalVocalGender] = useState<'f' | 'm' | ''>('')  // '' = 자동
 
   // N곡 생성 상태
   const [generating, setGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ done: 0, total: 0 })
   const [generatedRows, setGeneratedRows] = useState<GeneratedRow[]>([])
 
-  // 수노 스타일 즐겨찾기 (localStorage)
-  const FAVORITES_KEY = `suno-style-favorites-${id}`
-  const [styleFavorites, setStyleFavorites] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return []
-    try { return JSON.parse(localStorage.getItem(`suno-style-favorites-${id}`) ?? '[]') } catch { return [] }
-  })
-  const saveFavorites = (newStyles: string[]) => {
-    setStyleFavorites(prev => {
-      const merged = Array.from(new Set([...prev, ...newStyles]))
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify(merged))
-      return merged
-    })
+  // 수노 스타일 즐겨찾기 (추후 DB 연동 예정 — 현재는 세션 메모리만)
+  const [styleFavorites, setStyleFavorites] = useState<string[]>([])
+  const saveFavorites = (newFavorites: string[]) => {
+    setStyleFavorites(newFavorites)
   }
 
   // midi 로드 후 globalRatio 동기화
   useEffect(() => {
     if (midi?.original_ratio !== undefined) setGlobalRatio(midi.original_ratio)
   }, [midi?.original_ratio])
+
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const draftPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -332,6 +456,33 @@ export default function MidiDetailPage() {
     generatingRef.current = true
     setGenerating(true)
 
+    // Queue Board에 변환 진행 표시용 job enqueue
+    let variantJobId: string | null = null
+    try {
+      const enqRes = await fetch('/api/music-gen/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'draft.variants',
+          payload: { midiId, workspaceId: id, songCount },
+          max_attempts: 1,
+          // idempotency_key를 매번 고유하게 → 반복 생성 시 기존 done job 반환 방지
+          idempotency_key: `draft.variants-${midiId}-${Date.now()}`,
+          // scheduled_at을 1시간 미래로 설정 → Python worker가 pick하지 않음
+          // 클라이언트가 완료 시 직접 PATCH /api/music-gen/jobs/[id]로 ack 처리
+          scheduled_at: Date.now() + 3_600_000,
+        }),
+      })
+      if (enqRes.ok) {
+        const enqData = await enqRes.json()
+        variantJobId = enqData?.id ?? null
+      } else {
+        console.warn('[draft.variants enqueue] 실패:', enqRes.status)
+      }
+    } catch (e) {
+      console.warn('[draft.variants enqueue] 네트워크 오류:', e)
+    }
+
     // R2 이미지 목록 먼저 가져오기
     let imageKeys: string[] = []
     try {
@@ -355,29 +506,39 @@ export default function MidiDetailPage() {
       lyricsOpen: false,
       checked: false,
       loading: true,
+      vocalGender: globalVocalGender,
       songs: [],
     }))
 
     // DB에 skeleton N개 일괄 INSERT
-    await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        rows: skeletonRows.map((r, i) => ({
-          id: r.id,
-          imageKey: r.imageKey,
-          originalRatio: r.originalRatio,
-          sortOrder: i,
-        })),
-      }),
-    }).catch(() => { /* silent — UI는 계속 진행 */ })
+    try {
+      const insertRes = await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: skeletonRows.map((r, i) => ({
+            id: r.id,
+            imageKey: r.imageKey,
+            originalRatio: r.originalRatio,
+            vocalGender: r.vocalGender || null,
+            sortOrder: i,
+          })),
+        }),
+      })
+      if (!insertRes.ok) console.warn('[drafts INSERT] 실패:', insertRes.status)
+    } catch (e) {
+      console.warn('[drafts INSERT] 네트워크 오류:', e)
+    }
 
-    setGeneratedRows(skeletonRows)
+    setGeneratedRows(prev => [...prev, ...skeletonRows])
     setGenProgress({ done: 0, total: songCount })
 
-    // 각 row에 대해 variants API 직접 호출 (병렬)
-    await Promise.all(
-      skeletonRows.map(async (r, i) => {
+    // 각 row에 대해 variants API 순차 호출 (곡당 2.5초 딜레이)
+    for (let idx = 0; idx < skeletonRows.length; idx++) {
+      if (idx > 0) await new Promise(resolve => setTimeout(resolve, 2500))
+      const r = skeletonRows[idx]
+      const i = idx
+      await (async () => {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 120_000)
         try {
@@ -433,11 +594,23 @@ export default function MidiDetailPage() {
             body: JSON.stringify({ status: 'error', error_msg: errorMsg }),
           }).catch(() => {})
         }
-      })
-    )
+      })()
+    }
 
     generatingRef.current = false
     setGenerating(false)
+
+    // 생성 완료 후 DB에서 전체 리로드 (프론트 state 타이밍 이슈 해소)
+    await loadDrafts()
+
+    // Queue Board job ack
+    if (variantJobId) {
+      fetch(`/api/music-gen/jobs/${variantJobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done' }),
+      }).catch(() => {})
+    }
   }
 
   const patchDraft = useCallback((rowId: string, body: Record<string, unknown>) => {
@@ -451,15 +624,31 @@ export default function MidiDetailPage() {
   const handleMakeRow = async (rowId: string) => {
     const row = generatedRows.find(r => r.id === rowId)
     if (!row) return
-    setGeneratedRows(prev => prev.map(r => r.id === rowId ? { ...r, making: true } : r))
-    patchDraft(rowId, { status: 'making' })
+    setGeneratedRows(prev => prev.map(r => r.id === rowId ? { ...r, making: true, error: undefined } : r))
+    // DB에 'making' 즉시 반영 (await — 에러 PATCH와 순서 충돌 방지)
+    await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'making', error_msg: null }),
+    }).catch(() => {})
     try {
+      // clip_id 없으면 자동 업로드
+      if (!midi?.suno_cover_clip_id) {
+        const uploadRes = await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/suno-upload`, {
+          method: 'POST',
+        })
+        const uploadData = await uploadRes.json()
+        if (!uploadRes.ok) throw new Error(uploadData.error?.message ?? 'Suno 업로드 실패')
+        const clipId: string = uploadData?.data?.clip_id ?? uploadData?.clip_id
+        setMidi(prev => prev ? { ...prev, suno_cover_clip_id: clipId } as MidiDetail : prev)
+      }
+
       const res = await fetch(
         `/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}/songs`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ style_used: row.selectedStyle }),
+          body: JSON.stringify({ style_used: row.selectedStyle, original_ratio: row.originalRatio, style_weight: globalStyleWeight, weirdness: globalWeirdness, vocal_gender: row.vocalGender || null }),
         }
       )
       const data = await res.json()
@@ -470,12 +659,23 @@ export default function MidiDetailPage() {
           ? { ...r, making: false, songs: [...(r.songs ?? []), ...newSongs] }
           : r
       ))
+      // 노래 큐잉 성공 — DB를 'done'으로 업데이트 (새로고침 시 making 유지 방지)
+      await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done', error_msg: null }),
+      }).catch(() => {})
     } catch (e) {
       const errorMsg = e instanceof Error ? e.message : '실패'
       setGeneratedRows(prev => prev.map(r =>
         r.id === rowId ? { ...r, making: false, error: errorMsg } : r
       ))
-      patchDraft(rowId, { status: 'error', error_msg: errorMsg })
+      // DB를 'error'로 업데이트 (새로고침 시 making 유지 방지)
+      await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'error', error_msg: errorMsg }),
+      }).catch(() => {})
     }
   }
 
@@ -485,6 +685,21 @@ export default function MidiDetailPage() {
         ? { ...r, songs: r.songs.map(s => s.id === songId ? { ...s, ...patch } : s) }
         : r
     ))
+  }
+
+  const handleDraftDelete = (rowId: string) => {
+    const row = generatedRows.find(r => r.id === rowId)
+    if (row && row.songs.length > 0) {
+      setDraftDeleteTarget(rowId)
+      return
+    }
+    executeDraftDelete(rowId)
+  }
+
+  const executeDraftDelete = async (rowId: string) => {
+    setDraftDeleteTarget(null)
+    setGeneratedRows(prev => prev.filter(r => r.id !== rowId))
+    await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}`, { method: 'DELETE' })
   }
 
   const handleSongDelete = (draftRowId: string, songId: string) => {
@@ -519,6 +734,7 @@ export default function MidiDetailPage() {
     const dbPatch: Record<string, unknown> = {}
     if ('selectedStyle' in patch) dbPatch.selected_style = patch.selectedStyle
     if ('originalRatio' in patch) dbPatch.original_ratio = patch.originalRatio
+    if ('vocalGender' in patch) dbPatch.vocal_gender = patch.vocalGender || null
     if (Object.keys(dbPatch).length > 0) {
       fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${rowId}`, {
         method: 'PATCH',
@@ -546,8 +762,10 @@ export default function MidiDetailPage() {
       draftPollRef.current = setInterval(async () => {
         if (generatingRef.current) return  // 직접 생성 중엔 덮어쓰기 금지
         const res = await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts`)
+        if (!res.ok) return  // API 오류 시 state 보존
         const data = await res.json()
         const rows: DbDraftRow[] = data?.data ?? data ?? []
+        if (rows.length === 0) return  // 빈 응답 시 state 보존
         const songsResults = await Promise.all(
           rows.map(async r => {
             const sRes = await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${r.id}/songs`)
@@ -560,11 +778,14 @@ export default function MidiDetailPage() {
           const existing = prev.find(p => p.id === r.id)
           const newRow = dbRowToGeneratedRow(r, songsResults[i] ?? [])
           // 사용자 편집 상태 보존 (lyricsOpen, checked, selectedStyle)
+          // making: DB가 'making'이어도 로컬에 에러가 있으면 false 유지 (race condition 방지)
           return {
             ...newRow,
             lyricsOpen: existing?.lyricsOpen ?? false,
             checked: existing?.checked ?? false,
             selectedStyle: existing?.selectedStyle ?? newRow.selectedStyle,
+            making: newRow.making && !existing?.error,
+            error: newRow.error,
           }
         }))
         const stillLoadingRows = rows.some(r => r.status === 'loading' || r.status === 'making')
@@ -573,6 +794,8 @@ export default function MidiDetailPage() {
           clearInterval(draftPollRef.current!)
           draftPollRef.current = null
           setGenerating(false)
+          // 곡 완성 → Suno 크레딧 강제 갱신
+          refreshCredits(true)
         }
       }, 5000)
     } else if (!hasLoading && draftPollRef.current) {
@@ -580,7 +803,10 @@ export default function MidiDetailPage() {
       draftPollRef.current = null
     }
     return () => {
-      if (draftPollRef.current) clearInterval(draftPollRef.current)
+      if (draftPollRef.current) {
+        clearInterval(draftPollRef.current)
+        draftPollRef.current = null
+      }
     }
   }, [generatedRows, id, midiId])
 
@@ -646,6 +872,27 @@ export default function MidiDetailPage() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               초기화
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Draft 삭제 확인 (하위 mp3 존재 시) */}
+      <AlertDialog open={!!draftDeleteTarget} onOpenChange={open => { if (!open) setDraftDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>가사 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              하위에 생성된 mp3가 {generatedRows.find(r => r.id === draftDeleteTarget)?.songs.length ?? 0}곡 있습니다. 모두 삭제됩니다. 계속하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => draftDeleteTarget && executeDraftDelete(draftDeleteTarget)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              삭제
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -736,13 +983,14 @@ export default function MidiDetailPage() {
         </div>
 
 
+
         {/* 다운로드 + 액션 */}
         {isReady && (
           <div className="flex items-center gap-2 flex-wrap">
-            {midi.midi_master?.mp3_r2_key && (
+            {midi.midi_master?.mp3_r2_key && !midi.midi_master.mp3_r2_key.startsWith('/') && (
               <a
                 href={`/api/r2/object/${midi.midi_master.mp3_r2_key}`}
-                download
+                download="chords.mp3"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors flex-shrink-0"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -751,10 +999,10 @@ export default function MidiDetailPage() {
                 chords.mp3
               </a>
             )}
-            {midi.audio_url && (
+            {midi.audio_url && !midi.audio_url.startsWith('/') && !midi.audio_url.startsWith('data/') && (
               <a
                 href={`/api/r2/object/${midi.audio_url}`}
-                download
+                download="source.mp3"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors flex-shrink-0"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -767,7 +1015,7 @@ export default function MidiDetailPage() {
               onClick={() => setShowMakePopup(true)}
               className="px-3 py-1.5 bg-primary hover:opacity-90 text-primary-foreground text-xs rounded-md transition-opacity flex-shrink-0"
             >
-              음원 만들기
+              Cover곡 만들기
             </button>
             <button
               onClick={handleDelete}
@@ -913,8 +1161,8 @@ export default function MidiDetailPage() {
               <div className="space-y-1">
                 {analysisData.song_sections.map((s: { name: string; start_time: number; end_time: number; energy: number; characteristics: string }, i: number) => (
                   <div key={i} className="flex items-start gap-2 text-[11px]">
-                    <span className="text-muted-foreground tabular-nums flex-shrink-0 w-24">
-                      {String(Math.floor(s.start_time / 60)).padStart(2, '0')}:{String(s.start_time % 60).padStart(2, '0')} ~ {String(Math.floor(s.end_time / 60)).padStart(2, '0')}:{String(s.end_time % 60).padStart(2, '0')}
+                    <span className="text-muted-foreground tabular-nums flex-shrink-0 w-28">
+                      {String(Math.floor(s.start_time / 60)).padStart(2, '0')}:{String(Math.floor(s.start_time % 60)).padStart(2, '0')} ~ {String(Math.floor(s.end_time / 60)).padStart(2, '0')}:{String(Math.floor(s.end_time % 60)).padStart(2, '0')}
                     </span>
                     <span className="font-medium text-foreground flex-shrink-0">{s.name}</span>
                     <span className="text-muted-foreground/60">E{s.energy}</span>
@@ -928,7 +1176,7 @@ export default function MidiDetailPage() {
         </div>
       )}
 
-      {/* 음원 만들기 팝업 */}
+      {/* Cover곡 만들기 팝업 */}
       {showMakePopup && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -939,7 +1187,7 @@ export default function MidiDetailPage() {
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">음원 만들기</p>
+              <p className="text-sm font-semibold text-foreground">Cover곡 만들기</p>
               <button onClick={() => setShowMakePopup(false)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
             </div>
 
@@ -952,17 +1200,78 @@ export default function MidiDetailPage() {
               <input
                 type="number"
                 min={1}
-                max={10}
+                max={30}
                 value={songCount}
-                onChange={e => setSongCount(Math.min(10, Math.max(1, Number(e.target.value))))}
+                onChange={e => setSongCount(Math.min(30, Math.max(1, Number(e.target.value))))}
                 className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
 
-            {/* MIDI 적용율 */}
+            {/* 보컬 성별 */}
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">보컬</label>
+              <div className="flex gap-2">
+                {([['', '자동'], ['f', '여성'], ['m', '남성']] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setGlobalVocalGender(val as 'f' | 'm' | '')}
+                    className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
+                      globalVocalGender === val
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 독창성 (Weirdness) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-foreground">MIDI 적용율</label>
+                <label className="text-xs font-medium text-foreground">독창성</label>
+                <span className="text-xs text-muted-foreground tabular-nums">{globalWeirdness}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={globalWeirdness}
+                onChange={e => setGlobalWeirdness(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                <span>안정적</span>
+                <span>실험적</span>
+              </div>
+            </div>
+
+            {/* 스타일 반영 (Style Influence) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-foreground">스타일 반영</label>
+                <span className="text-xs text-muted-foreground tabular-nums">{globalStyleWeight}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={globalStyleWeight}
+                onChange={e => setGlobalStyleWeight(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                <span>자유롭게</span>
+                <span>태그 충실</span>
+              </div>
+            </div>
+
+            {/* 원곡적용률 (Audio Influence) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-foreground">원곡적용률</label>
                 <span className="text-xs text-muted-foreground tabular-nums">{globalRatio}%</span>
               </div>
               <input
@@ -999,7 +1308,7 @@ export default function MidiDetailPage() {
 
       {/* 생성 결과 그리드 */}
       {generatedRows.length > 0 && (
-        <div className="bg-background border border-border rounded-lg overflow-hidden">
+        <div className="bg-background border border-border rounded-lg overflow-visible">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
               {generating ? (
@@ -1023,7 +1332,7 @@ export default function MidiDetailPage() {
           </div>
 
           {/* 데스크톱 테이블 헤더 (lg 이상) */}
-          <div className="hidden lg:grid grid-cols-[28px_80px_1fr_1fr_90px_110px] border-b border-border bg-accent/30">
+          <div className="hidden lg:grid grid-cols-[28px_140px_0.7fr_1fr_90px_110px] border-b border-border bg-accent/30">
             <div className="px-2 py-2 flex items-center justify-center">
               <input
                 type="checkbox"
@@ -1031,10 +1340,10 @@ export default function MidiDetailPage() {
                 className="w-3.5 h-3.5 accent-primary"
               />
             </div>
-            <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">배경</div>
+            <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">제목</div>
             <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">가사</div>
             <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">스타일 + 요약</div>
-            <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">적용율</div>
+            <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">원곡적용률</div>
             <div className="px-2 py-2 text-[10px] font-medium text-muted-foreground">만들기</div>
           </div>
 
@@ -1053,7 +1362,7 @@ export default function MidiDetailPage() {
             <div key={row.id} className="border-b border-border last:border-0">
 
               {/* 데스크톱 행 (lg 이상) */}
-              <div className="hidden lg:grid grid-cols-[28px_80px_1fr_1fr_90px_110px] items-start">
+              <div className="hidden lg:grid grid-cols-[28px_140px_0.7fr_1fr_90px_110px] items-start">
                 {/* 체크박스 */}
                 <div className="px-2 py-3 flex justify-center">
                   <input
@@ -1065,27 +1374,16 @@ export default function MidiDetailPage() {
                   />
                 </div>
 
-                {/* 배경이미지 */}
+                {/* 제목 */}
                 <div className="px-2 py-2">
-                  {row.imageKey ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/r2/object/${row.imageKey}`}
-                      alt="배경"
-                      className="w-full aspect-video object-cover rounded border border-border"
-                    />
-                  ) : (
-                    <div className="w-full aspect-video bg-accent rounded border border-border flex items-center justify-center">
-                      <svg className="w-4 h-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-                      </svg>
-                    </div>
-                  )}
                   {row.loading ? (
-                    <div className="h-2.5 bg-accent animate-pulse rounded mt-1.5 w-3/4" />
-                  ) : row.title_en ? (
-                    <p className="text-[10px] text-muted-foreground mt-1 truncate" title={row.title_jp}>{row.title_en}</p>
-                  ) : null}
+                    <div className="h-2.5 bg-accent animate-pulse rounded w-3/4" />
+                  ) : (
+                    <>
+                      {row.title_en && <p className="text-[11px] font-medium text-foreground break-words leading-tight">{row.title_en}</p>}
+                      {row.title_jp && <p className="text-[10px] text-muted-foreground break-words leading-tight mt-0.5">{row.title_jp}</p>}
+                    </>
+                  )}
                 </div>
 
                 {/* 가사 */}
@@ -1098,10 +1396,11 @@ export default function MidiDetailPage() {
                       </svg>
                       가사 생성 중...
                     </div>
-                  ) : row.error ? (
-                    <p className="text-[11px] text-red-500">{row.error}</p>
                   ) : (
                     <>
+                      {row.error && (
+                        <p className="text-[11px] text-red-500 mb-1">{row.error}</p>
+                      )}
                       <button
                         onClick={() => updateRow(row.id, { lyricsOpen: !row.lyricsOpen })}
                         className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mb-1"
@@ -1131,6 +1430,7 @@ export default function MidiDetailPage() {
                   ) : (
                     <>
                       <Combobox
+                        key={`${row.id}-${row.selectedStyle}`}
                         options={row.suno_style_prompts}
                         value={row.selectedStyle}
                         onChange={v => updateRow(row.id, { selectedStyle: v })}
@@ -1145,7 +1445,7 @@ export default function MidiDetailPage() {
                   )}
                 </div>
 
-                {/* 적용율 */}
+                {/* 원곡적용률 + 성별 */}
                 <div className="px-2 py-2">
                   {row.loading ? (
                     <div className="space-y-1.5">
@@ -1163,6 +1463,22 @@ export default function MidiDetailPage() {
                         onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
                         className="w-full accent-primary"
                       />
+                      <div className="flex gap-1 mt-1.5">
+                        {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
+                            className={`flex-1 py-0.5 text-[9px] rounded border transition-colors ${
+                              row.vocalGender === val
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </>
                   )}
                 </div>
@@ -1174,10 +1490,7 @@ export default function MidiDetailPage() {
                       <div className="h-6 bg-accent animate-pulse rounded" />
                       <div className="h-6 bg-accent animate-pulse rounded" />
                       <button
-                        onClick={async () => {
-                          setGeneratedRows(prev => prev.filter(r => r.id !== row.id))
-                          await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${row.id}`, { method: 'DELETE' })
-                        }}
+                        onClick={() => handleDraftDelete(row.id)}
                         className="w-full px-2 py-1.5 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 text-[11px] rounded-md transition-colors"
                       >
                         삭제
@@ -1187,16 +1500,13 @@ export default function MidiDetailPage() {
                     <>
                       <button
                         onClick={() => handleMakeRow(row.id)}
-                        disabled={!!row.making || !!row.error}
+                        disabled={!!row.making}
                         className="w-full px-2 py-1.5 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-[11px] rounded-md transition-opacity"
                       >
-                        {row.making ? '생성 중...' : row.songs.length > 0 ? '+ mp3 추가' : 'mp3 만들기'}
+                        {row.making ? '생성 중...' : row.songs.length > 0 ? '+ Cover곡 추가' : 'Cover곡 만들기'}
                       </button>
                       <button
-                        onClick={async () => {
-                          setGeneratedRows(prev => prev.filter(r => r.id !== row.id))
-                          await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${row.id}`, { method: 'DELETE' })
-                        }}
+                        onClick={() => handleDraftDelete(row.id)}
                         className="w-full px-2 py-1.5 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 text-[11px] rounded-md transition-colors"
                       >
                         삭제
@@ -1231,20 +1541,6 @@ export default function MidiDetailPage() {
                     onChange={e => updateRow(row.id, { checked: e.target.checked })}
                     className="w-3.5 h-3.5 accent-primary mt-1 flex-shrink-0"
                   />
-                  {row.imageKey ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/r2/object/${row.imageKey}`}
-                      alt="배경"
-                      className="w-20 aspect-video object-cover rounded border border-border flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-20 aspect-video bg-accent rounded border border-border flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-                      </svg>
-                    </div>
-                  )}
                   <div className="flex-1 min-w-0">
                     {row.loading ? (
                       <div className="space-y-1.5">
@@ -1253,8 +1549,8 @@ export default function MidiDetailPage() {
                       </div>
                     ) : row.title_en ? (
                       <>
-                        <p className="text-xs font-medium text-foreground truncate">{row.title_en}</p>
-                        {row.title_jp && <p className="text-[10px] text-muted-foreground truncate">{row.title_jp}</p>}
+                        <p className="text-xs font-medium text-foreground break-words leading-tight">{row.title_en}</p>
+                        {row.title_jp && <p className="text-[10px] text-muted-foreground break-words leading-tight">{row.title_jp}</p>}
                       </>
                     ) : null}
                   </div>
@@ -1270,10 +1566,11 @@ export default function MidiDetailPage() {
                       </svg>
                       가사 생성 중...
                     </div>
-                  ) : row.error ? (
-                    <p className="text-[11px] text-red-500">{row.error}</p>
                   ) : (
                     <>
+                      {row.error && (
+                        <p className="text-[11px] text-red-500 mb-1">{row.error}</p>
+                      )}
                       <button
                         onClick={() => updateRow(row.id, { lyricsOpen: !row.lyricsOpen })}
                         className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mb-1"
@@ -1302,6 +1599,7 @@ export default function MidiDetailPage() {
                   ) : (
                     <>
                       <Combobox
+                        key={`${row.id}-${row.selectedStyle}`}
                         options={row.suno_style_prompts}
                         value={row.selectedStyle}
                         onChange={v => updateRow(row.id, { selectedStyle: v })}
@@ -1316,7 +1614,7 @@ export default function MidiDetailPage() {
                   )}
                 </div>
 
-                {/* 적용율 */}
+                {/* 원곡적용률 + 성별 */}
                 <div>
                   {row.loading ? (
                     <div className="space-y-1.5">
@@ -1324,17 +1622,35 @@ export default function MidiDetailPage() {
                       <div className="h-2 bg-accent animate-pulse rounded" />
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground flex-shrink-0">MIDI 적용율 {row.originalRatio}%</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={row.originalRatio}
-                        onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
-                        className="flex-1 accent-primary"
-                      />
-                    </div>
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground flex-shrink-0">원곡적용률 {row.originalRatio}%</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={row.originalRatio}
+                          onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
+                          className="flex-1 accent-primary"
+                        />
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
+                            className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
+                              row.vocalGender === val
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -1345,10 +1661,7 @@ export default function MidiDetailPage() {
                       <div className="flex-1 h-8 bg-accent animate-pulse rounded" />
                       <div className="flex-1 h-8 bg-accent animate-pulse rounded" />
                       <button
-                        onClick={async () => {
-                          setGeneratedRows(prev => prev.filter(r => r.id !== row.id))
-                          await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${row.id}`, { method: 'DELETE' })
-                        }}
+                        onClick={() => handleDraftDelete(row.id)}
                         className="px-3 py-1.5 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 text-[11px] rounded-md transition-colors"
                       >
                         삭제
@@ -1358,16 +1671,13 @@ export default function MidiDetailPage() {
                     <>
                       <button
                         onClick={() => handleMakeRow(row.id)}
-                        disabled={!!row.making || !!row.error}
+                        disabled={!!row.making}
                         className="flex-1 px-2 py-2 bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground text-[11px] rounded-md transition-opacity"
                       >
-                        {row.making ? '생성 중...' : row.songs.length > 0 ? '+ mp3 추가' : 'mp3 만들기'}
+                        {row.making ? '생성 중...' : row.songs.length > 0 ? '+ Cover곡 추가' : 'Cover곡 만들기'}
                       </button>
                       <button
-                        onClick={async () => {
-                          setGeneratedRows(prev => prev.filter(r => r.id !== row.id))
-                          await fetch(`/api/music-gen/workspaces/${id}/midis/${midiId}/drafts/${row.id}`, { method: 'DELETE' })
-                        }}
+                        onClick={() => handleDraftDelete(row.id)}
                         className="px-3 py-2 bg-transparent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 dark:text-red-400 text-[11px] rounded-md transition-colors"
                       >
                         삭제
@@ -1407,5 +1717,38 @@ export default function MidiDetailPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function SongPlayButton({ song, label }: { song: DraftSong; label: string }) {
+  const { play, currentTrack, isPlaying } = useAudioPlayer()
+  const isActive = currentTrack?.id === song.id
+
+  function handleClick() {
+    if (!song.audio_url) return
+    play({
+      id: song.id,
+      title: song.title || label,
+      audioUrl: song.audio_url,
+      imageUrl: song.image_url ?? undefined,
+    })
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+        isActive
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-accent text-muted-foreground hover:bg-primary/20 hover:text-foreground'
+      }`}
+      title={isActive && isPlaying ? '일시정지' : '재생'}
+    >
+      {isActive && isPlaying ? (
+        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      )}
+    </button>
   )
 }

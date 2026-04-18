@@ -152,7 +152,7 @@ export default function WorkspacesPage() {
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground/60">
-                    {new Date(ws.created_at).toLocaleDateString('ko-KR')}
+                    {((d) => `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`)(new Date(ws.created_at))}
                   </p>
                 </Link>
               )}

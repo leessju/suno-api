@@ -18,12 +18,11 @@ interface UserProfileMenuProps {
   isAdmin?: boolean
 }
 
-export function UserProfileMenu({ name, email, isAdmin }: UserProfileMenuProps) {
+export function UserProfileMenu({ name, email }: UserProfileMenuProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    // 마운트 시 아바타 로드
     fetch('/api/user/profile')
       .then(r => r.json())
       .then(d => {
@@ -31,7 +30,6 @@ export function UserProfileMenu({ name, email, isAdmin }: UserProfileMenuProps) 
       })
       .catch(() => {})
 
-    // 프로필 페이지에서 아바타 변경 시 즉시 반영
     function handleAvatarUpdate(e: Event) {
       const url = (e as CustomEvent<string | null>).detail
       setAvatarUrl(url)
@@ -66,7 +64,6 @@ export function UserProfileMenu({ name, email, isAdmin }: UserProfileMenuProps) 
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-52">
-        {/* 유저 정보 */}
         <div className="px-3 py-2.5 border-b border-border">
           <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
           <p className="text-xs text-muted-foreground truncate mt-0.5">{email}</p>
@@ -80,47 +77,6 @@ export function UserProfileMenu({ name, email, isAdmin }: UserProfileMenuProps) 
             프로필 편집
           </Link>
         </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/settings/suno-accounts" className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground cursor-pointer">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-            </svg>
-            Suno 계정 관리
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/settings/telegram" className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground cursor-pointer">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-            </svg>
-            텔레그램 설정
-          </Link>
-        </DropdownMenuItem>
-
-        {isAdmin && (
-          <>
-            <DropdownMenuSeparator />
-            <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">관리</p>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground cursor-pointer">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
-                회원 권한 관리
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm text-foreground cursor-pointer">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
-                </svg>
-                Job 큐
-              </Link>
-            </DropdownMenuItem>
-          </>
-        )}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem

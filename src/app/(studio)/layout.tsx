@@ -7,6 +7,8 @@ import { StudioHeader } from '@/components/StudioHeader'
 import { ChannelProvider } from '@/components/ChannelProvider'
 import { SunoAccountProvider } from '@/components/SunoAccountProvider'
 import { SideNavProvider } from '@/components/SideNavProvider'
+import { AudioPlayerProvider } from '@/components/AudioPlayerProvider'
+import { ToastProvider } from '@/components/Toast'
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -17,6 +19,8 @@ export default async function StudioLayout({ children }: { children: React.React
   }
 
   return (
+    <ToastProvider>
+    <AudioPlayerProvider>
     <ChannelProvider>
       <SunoAccountProvider>
       <SideNavProvider>
@@ -39,5 +43,7 @@ export default async function StudioLayout({ children }: { children: React.React
       </SideNavProvider>
       </SunoAccountProvider>
     </ChannelProvider>
+    </AudioPlayerProvider>
+    </ToastProvider>
   )
 }

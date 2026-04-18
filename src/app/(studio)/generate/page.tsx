@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useAudioPlayer } from '@/components/AudioPlayerProvider'
 
 interface MidiFile {
   id: string
@@ -147,8 +148,8 @@ export default function GeneratePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">노래 만들기</h1>
-        <p className="text-sm text-muted-foreground mt-1">미디파일 분석을 기반으로 노래를 생성합니다</p>
+        <h1 className="text-xl font-semibold text-foreground">Cover곡 만들기</h1>
+        <p className="text-sm text-muted-foreground mt-1">원곡 분석을 기반으로 Cover곡을 생성합니다</p>
       </div>
 
       {/* 설정 카드 */}
@@ -305,7 +306,7 @@ export default function GeneratePage() {
               {/* Waveform + Audio Player */}
               {c.audio_url && (
                 <div className="space-y-2">
-                  <WaveformPlayer audioUrl={c.audio_url} />
+                  <WaveformPlayer audioUrl={c.audio_url} title={c.title_en ?? c.title_jp ?? undefined} />
                 </div>
               )}
 
@@ -331,33 +332,38 @@ export default function GeneratePage() {
   )
 }
 
-// Waveform 시각바 컴포넌트
-function WaveformPlayer({ audioUrl }: { audioUrl: string }) {
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [playing, setPlaying] = useState(false)
+// Waveform 시각바 컴포넌트 — 글로벌 오디오 플레이어 연동
+function WaveformPlayer({ audioUrl, title }: { audioUrl: string; title?: string }) {
+  const { play, subscribe, currentTrack, isPlaying, seek } = useAudioPlayer()
   const [progress, setProgress] = useState(0)
-  // Simulated waveform bars (random amplitudes for visual effect)
-  const bars = Array.from({ length: 60 }, (_, i) => Math.sin(i * 0.3) * 0.4 + Math.random() * 0.6)
+  const [duration, setDuration] = useState(0)
+  const isActive = currentTrack?.audioUrl === audioUrl
+  const playing = isActive && isPlaying
+  const bars = useRef(Array.from({ length: 60 }, (_, i) => Math.sin(i * 0.3) * 0.4 + Math.random() * 0.6)).current
 
-  function togglePlay() {
-    const audio = audioRef.current
-    if (!audio) return
-    if (playing) { audio.pause(); setPlaying(false) }
-    else { audio.play(); setPlaying(true) }
+  useEffect(() => {
+    if (!isActive) { setProgress(0); return }
+    return subscribe(({ currentTime, duration: dur }) => {
+      setProgress(dur > 0 ? currentTime / dur : 0)
+      setDuration(dur)
+    })
+  }, [isActive, subscribe])
+
+  function handleToggle() {
+    play({ id: 'gen-' + audioUrl.slice(-8), title: title ?? '생성된 곡', audioUrl })
   }
 
-  function handleTimeUpdate() {
-    const audio = audioRef.current
-    if (!audio) return
-    setProgress(audio.currentTime / audio.duration)
+  function handleBarClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!isActive || duration <= 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    seek(ratio * duration)
   }
 
   return (
     <div className="space-y-2">
-      <audio ref={audioRef} src={audioUrl} onTimeUpdate={handleTimeUpdate} onEnded={() => setPlaying(false)} />
-      {/* Waveform bars */}
-      <div className="flex items-center gap-0.5 h-12 cursor-pointer" onClick={togglePlay}>
-        <button className="mr-2 w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-primary-foreground flex-shrink-0">
+      <div className="flex items-center gap-0.5 h-12 cursor-pointer" onClick={handleBarClick}>
+        <button onClick={(e) => { e.stopPropagation(); handleToggle() }} className="mr-2 w-8 h-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-primary-foreground flex-shrink-0">
           {playing ? (
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
           ) : (

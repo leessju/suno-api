@@ -37,6 +37,7 @@ export function buildUserPrompt(
   failureReason?: string,
   mediaAnalysis?: MediaAnalysis,
   originalRatio: number = 50,
+  existingTitles: string[] = [],
 ): string {
   const mediaLines: string[] = [];
 
@@ -88,6 +89,24 @@ export function buildUserPrompt(
   mediaLines.push('- title_en과 title_jp는 레퍼런스 트랙의 키워드(분위기 단어, 장르 용어 등)를 직접 사용하지 마라.');
   mediaLines.push('- 채널의 감성 세계관에서 독창적인 은유나 시적 표현을 찾아 제목을 짓는다.');
   mediaLines.push('- 같은 단어를 반복 사용하지 않는다. 매번 새로운 시각적·감각적 이미지로 표현하라.');
+  if (existingTitles.length > 0) {
+    // 제목에서 핵심 단어 추출 → 빈도 상위 15개만 전달 (토큰 절약)
+    const stopWords = new Set(['the','a','an','of','in','on','at','to','for','and','or','my','your','no','is','it','this','that','with','from']);
+    const wordFreq = new Map<string, number>();
+    for (const title of existingTitles) {
+      for (const w of title.toLowerCase().split(/[\s\-—:,()]+/).filter(w => w.length >= 2 && !stopWords.has(w))) {
+        wordFreq.set(w, (wordFreq.get(w) ?? 0) + 1);
+      }
+    }
+    const topWords = [...wordFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([w, c]) => c > 1 ? `${w}(${c})` : w);
+    if (topWords.length > 0) {
+      mediaLines.push(`- **과다 사용된 제목 단어 (사용 금지)**: ${topWords.join(', ')}`);
+      mediaLines.push('- 위 단어와 완전히 다른 어휘·이미지를 사용하라.');
+    }
+  }
   mediaLines.push('');
   mediaLines.push('### Suno 스타일 프롬프트');
   mediaLines.push(
@@ -97,7 +116,7 @@ export function buildUserPrompt(
   );
   mediaLines.push('');
   mediaLines.push('### 요약(narrative)');
-  mediaLines.push('narrative 필드는 **한국어로 20자 이내**로 곡의 분위기를 한 줄로 요약하라. (영어 사용 금지)');
+  mediaLines.push('narrative field: English ONLY, max 10 words. A short mood summary of the song.');
   mediaLines.push('');
 
   if (mediaAnalysis) {
@@ -199,7 +218,15 @@ export function buildUserPrompt(
     ...mediaLines,
     emotionInput ? `감정/분위기 입력: ${emotionInput}` : '',
     '',
-    'STRICT LANGUAGE RULE: Output lyrics in Japanese (Kanji + Furigana) only. Zero Korean characters allowed in lyrics field. English only for title_en, suno_style_prompts. narrative field must be in Korean (한국어), 20 characters or fewer.',
+    '## STRICT LANGUAGE RULE (CRITICAL — violation = instant reject)',
+    '1. lyrics field: Japanese ONLY (Kanji + Hiragana + Katakana + furigana). NO Korean (Hangul U+AC00-U+D7AF) allowed.',
+    '   - Korean particles MUST NOT appear: 가→が, 의→の, 를→を, 에→に, 는→は, 도→も, 와→と',
+    '   - WRONG: `街灯(がいとう)의光` → CORRECT: `街灯(がいとう)の光`',
+    '   - WRONG: `孤独(こ독)` → CORRECT: `孤独(こどく)`',
+    '   - Instrument/mood directives (e.g. "Electric piano...") must go in Suno tags, NOT in lyrics.',
+    '2. title_en, suno_style_prompts: English ONLY.',
+    '3. narrative: English ONLY, max 10 words. A short mood summary of the song.',
+    '4. Furigana must use Hiragana/Katakana ONLY. No Hangul inside furigana parentheses.',
   ].filter(line => line !== null).join('\n');
 }
 

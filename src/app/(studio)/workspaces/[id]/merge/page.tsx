@@ -96,7 +96,7 @@ export default function MergePage({ params }: { params: { id: string } }) {
         <div>
           <h1 className="text-xl font-bold text-foreground">머지 순서 지정</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            드래그하거나 화살표 버튼으로 트랙 순서를 조정하세요
+            드래그하거나 화살표 버튼으로 Cover곡 순서를 조정하세요
           </p>
         </div>
         <Button
@@ -115,7 +115,7 @@ export default function MergePage({ params }: { params: { id: string } }) {
       {!loading && orderedTracks.length === 0 && (
         <div className="p-6 bg-background border border-border rounded-xl text-center">
           <p className="text-sm text-muted-foreground">
-            승인된 트랙이 없습니다. Suno 생성 후 트랙을 승인하면 여기에 표시됩니다.
+            확정된 Cover곡이 없습니다. Cover곡을 생성하고 확정하면 여기에 표시됩니다.
           </p>
         </div>
       )}

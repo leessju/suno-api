@@ -61,11 +61,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const sets: string[] = ['updated_at = ?']
     const vals: unknown[] = [now]
 
-    const { label, gen_mode, original_ratio, status } = parsed.data
+    const { label, gen_mode, original_ratio, status, suno_cover_clip_id } = parsed.data
     if (label !== undefined) { sets.push('label = ?'); vals.push(label) }
     if (gen_mode !== undefined) { sets.push('gen_mode = ?'); vals.push(gen_mode) }
     if (original_ratio !== undefined) { sets.push('original_ratio = ?'); vals.push(original_ratio) }
     if (status !== undefined) { sets.push('status = ?'); vals.push(status) }
+    if (suno_cover_clip_id !== undefined) { sets.push('suno_cover_clip_id = ?'); vals.push(suno_cover_clip_id) }
 
     vals.push(midiId)
     const db = getDb()

@@ -18,8 +18,9 @@ export default async function DashboardPage() {
     const workspaces = db.prepare(`
       SELECT w.id, w.name, w.status, w.created_at, c.channel_name
       FROM workspaces w LEFT JOIN channels c ON c.id = w.channel_id
+      WHERE w.user_id = ?
       ORDER BY w.created_at DESC LIMIT 5
-    `).all() as { id: string; name: string; status: string; channel_name: string | null; created_at: number }[]
+    `).all(session!.user.id) as { id: string; name: string; status: string; channel_name: string | null; created_at: number }[]
 
     stats = {
       activeJobs: jobRow.cnt,

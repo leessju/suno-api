@@ -36,6 +36,9 @@ JOB_HANDLERS: dict[str, str] = {
 # GPU/CPU 집약 job — 동시 1개 제한
 HEAVY_JOB_TYPES = {'midi.convert', 'synclens.extract_lyrics', 'synclens.render_song'}
 
+# 렌더 파이프라인 — 전용 세마포어 (Demucs GPU + Remotion CPU, heavy와 독립)
+RENDER_JOB_TYPES = {'render.remotion'}
+
 
 class Dispatcher:
     def __init__(self, db_path: str, poll_interval: float = 1.0):
@@ -43,7 +46,8 @@ class Dispatcher:
         self.poll_interval = poll_interval
         self._handlers: dict[str, Callable] = {}
         self._heavy_sem = asyncio.Semaphore(1)   # midi.convert: 1개
-        self._light_sem = asyncio.Semaphore(4)   # 나머지: 최대 4개
+        self._render_sem = asyncio.Semaphore(1)  # render.remotion: 1개 (heavy와 독립)
+        self._light_sem = asyncio.Semaphore(3)   # 나머지: 최대 3개 (render 분리로 총 동시 5 유지)
 
     def _get_db(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -53,17 +57,19 @@ class Dispatcher:
         return conn
 
     def _pick_job(self) -> dict | None:
-        """pending job 1개 pick → running으로 변경"""
+        """pending job 1개 pick → running으로 변경 (known types만 처리)"""
         conn = self._get_db()
         try:
             now = int(time.time() * 1000)
+            placeholders = ','.join('?' * len(JOB_HANDLERS))
             row = conn.execute(
-                """
+                f"""
                 SELECT * FROM job_queue
                 WHERE status = 'pending' AND scheduled_at <= ?
+                AND type IN ({placeholders})
                 ORDER BY scheduled_at ASC LIMIT 1
                 """,
-                (now,)
+                (now, *JOB_HANDLERS.keys())
             ).fetchone()
 
             if not row:
@@ -140,9 +146,16 @@ class Dispatcher:
             self._fail_job(job_id, str(e), job['attempts'], job['max_attempts'])
             return
 
-        sem = self._heavy_sem if job_type in HEAVY_JOB_TYPES else self._light_sem
+        if job_type in RENDER_JOB_TYPES:
+            sem = self._render_sem
+        elif job_type in HEAVY_JOB_TYPES:
+            sem = self._heavy_sem
+        else:
+            sem = self._light_sem
         async with sem:
             try:
+                # 모든 job의 payload에 _job_id 주입 (internal convention)
+                job['payload']['_job_id'] = job['id']
                 logger.info(f"Job 실행: {job_type} [{job_id[:8]}]")
                 await handler(job['payload'], db_path=self.db_path)
                 self._ack_job(job_id)

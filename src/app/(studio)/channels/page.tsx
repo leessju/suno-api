@@ -68,7 +68,7 @@ export default function ChannelsPage() {
             return (
               <Link
                 key={ch.id}
-                href={`/channels/${ch.id}`}
+                href={`/channels/${ch.youtube_channel_id}`}
                 className="flex items-center gap-4 bg-background border border-border rounded-lg px-4 py-3 hover:border-foreground/40 transition-colors"
               >
                 {/* 아바타 */}

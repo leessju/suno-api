@@ -159,48 +159,37 @@ export function WorkspaceTree() {
         )}
         {workspaces.map(ws => (
           <div key={ws.id}>
-            {/* 워크스페이스 행 — 섹션 헤더와 동일 스타일 */}
-            <button
-              onClick={() => toggleExpand(ws.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 text-sm transition-colors rounded-sm ${isWsActive(ws.id) ? 'bg-accent' : 'hover:bg-accent'}`}
-            >
-              <span className={`text-xs truncate ${isWsActive(ws.id) ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+            {/* 워크스페이스 행 — 이름 클릭=상세, chevron 클릭=토글 */}
+            <div className={`flex items-center px-3 py-2 text-sm transition-colors rounded-sm ${isWsActive(ws.id) ? 'bg-accent' : 'hover:bg-accent'}`}>
+              <Link
+                href={`/workspaces/${ws.id}`}
+                className={`text-xs truncate flex-1 min-w-0 ${isWsActive(ws.id) ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+              >
                 {ws.name}
-              </span>
-              <span className="flex items-center gap-1.5 flex-shrink-0 text-muted-foreground">
                 {ws.midis !== undefined && (
-                  <span className="text-[10px] tabular-nums">{ws.midis.length}</span>
+                  <span className="ml-1 text-[10px] tabular-nums text-muted-foreground">({ws.midis.length})</span>
                 )}
+              </Link>
+              <button
+                onClick={() => toggleExpand(ws.id)}
+                className="flex-shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
                 <svg className={`w-3.5 h-3.5 transition-transform duration-150 ${expanded.has(ws.id) ? 'rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
-              </span>
-            </button>
+              </button>
+            </div>
 
-            {/* MIDI 목록 (펼침) */}
+            {/* 원곡 목록 (펼침) */}
             {expanded.has(ws.id) && (
               <div className="ml-5 pl-2 border-l border-border">
-                {/* 전체보기 / MIDI 추가 */}
-                <Link
-                  href={`/workspaces/${ws.id}`}
-                  className={`flex items-center gap-1.5 py-1 px-2 rounded-md text-xs transition-colors ${
-                    isWsRoot(ws.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'
-                  }`}
-                >
-                  전체보기
-                </Link>
-                <Link
-                  href={`/workspaces/${ws.id}?add_midi=1`}
-                  className={`flex items-center gap-1.5 py-1 px-2 rounded-md text-xs transition-colors ${
-                    isAddMidi(ws.id) ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'
-                  }`}
-                >
-                  + MIDI 추가
-                </Link>
                 {midiLoading.has(ws.id) && (
                   <div className="py-1 space-y-1">
                     <div className="h-5 bg-accent rounded animate-pulse" />
                   </div>
+                )}
+                {!midiLoading.has(ws.id) && ws.midis?.length === 0 && (
+                  <p className="py-1 px-2 text-[10px] text-muted-foreground/50">원곡 없음</p>
                 )}
                 {!midiLoading.has(ws.id) && ws.midis?.map(midi => (
                   <Link
@@ -213,7 +202,7 @@ export function WorkspaceTree() {
                     }`}
                   >
                     <span className="text-[10px]">{SOURCE_ICONS[midi.source_type] ?? '♪'}</span>
-                    <span className="truncate flex-1">{midi.label ?? 'MIDI'}</span>
+                    <span className="truncate flex-1">{midi.label ?? '원곡'}</span>
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_COLORS[midi.status] ?? 'bg-muted-foreground'}`} title={midi.status} />
                   </Link>
                 ))}

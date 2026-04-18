@@ -131,7 +131,7 @@ export default function ImagesPage({ params }: { params: { id: string } }) {
 
       {!loading && tracks.length === 0 && (
         <div className="p-8 bg-background rounded-xl border border-border text-center">
-          <p className="text-muted-foreground">체크된 트랙이 없습니다. 먼저 음악 리스트에서 트랙을 선택하세요.</p>
+          <p className="text-muted-foreground">확정된 Cover곡이 없습니다. 먼저 Cover곡을 생성하고 확정하세요.</p>
         </div>
       )}
 

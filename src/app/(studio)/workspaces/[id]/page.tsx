@@ -19,7 +19,7 @@ interface WorkspaceMidi {
   original_ratio: number
   status: string
   error_message: string | null
-  track_count: number
+  cover_count: number
   created_at: number
 }
 
@@ -30,6 +30,7 @@ interface Workspace {
   status: string
   suno_sync_status: string
   suno_workspace_id: string | null
+  suno_project_id: string | null
   channel_name: string | null
   channel_id: string | null
   suno_account_label: string | null
@@ -72,10 +73,14 @@ export default function WorkspaceHubPage() {
   const [editNameVal, setEditNameVal] = useState('')
   const [savingName, setSavingName] = useState(false)
 
+  // Suno Project ID 편집 상태
+  const [sunoProjectIdVal, setSunoProjectIdVal] = useState('')
+  const [savingSunoProjectId, setSavingSunoProjectId] = useState(false)
+
   // 채널 썸네일
   const [channelThumb, setChannelThumb] = useState<string | null>(null)
 
-  // MIDI 추가 폼 상태
+  // 원곡 추가 폼 상태
   const [sourceType, setSourceType] = useState<'youtube_video' | 'mp3_file'>('youtube_video')
   const [sourceRef, setSourceRef] = useState('')
   const [label, setLabel] = useState('')
@@ -120,6 +125,10 @@ export default function WorkspaceHubPage() {
     loadData()
     return () => { if (pollRef.current) clearTimeout(pollRef.current) }
   }, [loadData])
+
+  useEffect(() => {
+    if (workspace) setSunoProjectIdVal(workspace.suno_project_id ?? '')
+  }, [workspace?.suno_project_id])
 
   // 채널 썸네일 fetch
   useEffect(() => {
@@ -182,6 +191,22 @@ export default function WorkspaceHubPage() {
     }
   }
 
+  async function handleSaveSunoProjectId() {
+    setSavingSunoProjectId(true)
+    try {
+      const res = await fetch(`/api/music-gen/workspaces/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suno_project_id: sunoProjectIdVal.trim() || null }),
+      })
+      if (res.ok) {
+        setWorkspace(prev => prev ? { ...prev, suno_project_id: sunoProjectIdVal.trim() || null } : prev)
+      }
+    } finally {
+      setSavingSunoProjectId(false)
+    }
+  }
+
   async function handleAddMidi(e: React.FormEvent) {
     e.preventDefault()
     setAddError('')
@@ -236,8 +261,8 @@ export default function WorkspaceHubPage() {
       if (!res.ok) throw new Error(data.error?.message ?? '오류가 발생했습니다')
       const savedMidi = data?.data ?? data
       fetch(`/api/music-gen/workspaces/${id}/midis/${savedMidi.id}/analyze`, { method: 'POST' }).catch(() => {})
-      setMidis(prev => [...prev, { ...savedMidi, track_count: 0 }])
-      // 새 MIDI가 처리 중이므로 폴링 즉시 시작
+      setMidis(prev => [...prev, { ...savedMidi, cover_count: 0 }])
+      // 새 원곡이 처리 중이므로 폴링 즉시 시작
       if (pollRef.current) clearTimeout(pollRef.current)
       pollRef.current = setTimeout(() => loadData(true), 3000)
       setShowAddMidi(false)
@@ -285,8 +310,8 @@ export default function WorkspaceHubPage() {
                 onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false) }}
                 className="text-xl font-semibold bg-background border border-input rounded px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <Button onClick={handleSaveName} disabled={savingName} className="text-xs text-primary hover:opacity-80 disabled:opacity-50">저장</Button>
-              <Button onClick={() => setEditingName(false)} className="text-xs text-muted-foreground hover:text-foreground">취소</Button>
+              <Button variant="ghost" size="sm" onClick={handleSaveName} disabled={savingName} className="text-xs text-primary hover:opacity-80 disabled:opacity-50">저장</Button>
+              <Button variant="ghost" size="sm" onClick={() => setEditingName(false)} className="text-xs text-muted-foreground hover:text-foreground">취소</Button>
             </div>
           ) : (
             <h1
@@ -319,15 +344,15 @@ export default function WorkspaceHubPage() {
             onClick={() => setShowAddMidi(true)}
             className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
           >
-            + MIDI 추가
+            + 원곡 추가
           </Button>
         )}
       </div>
 
-      {/* MIDI 추가 폼 */}
+      {/* 원곡 추가 폼 */}
       {showAddMidi && (
         <div className="bg-background border border-border rounded-lg p-5 shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground mb-4">새 MIDI 추가</h2>
+          <h2 className="text-sm font-semibold text-foreground mb-4">새 원곡 추가</h2>
           <form onSubmit={handleAddMidi} className="space-y-4">
             {/* 소스 타입 */}
             <div>
@@ -446,12 +471,12 @@ export default function WorkspaceHubPage() {
       {/* MIDI 카드 그리드 */}
       {!showAddMidi && midis.length === 0 && (
         <div className="bg-background border border-dashed border-border rounded-lg p-10 text-center">
-          <p className="text-sm text-muted-foreground mb-3">아직 MIDI가 없습니다.</p>
+          <p className="text-sm text-muted-foreground mb-3">아직 원곡이 없습니다.</p>
           <Button
             onClick={() => setShowAddMidi(true)}
             className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity"
           >
-            첫 MIDI 추가
+            첫 원곡 추가
           </Button>
         </div>
       )}
@@ -482,8 +507,8 @@ export default function WorkspaceHubPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{new Date(midi.created_at).toLocaleDateString('ko-KR')}</span>
-                    <span>{midi.track_count}개 트랙</span>
+                    <span>{((d) => `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`)(new Date(midi.created_at))}</span>
+                    <span>Cover {midi.cover_count}곡</span>
                   </div>
                   {!thumbnail && midi.source_ref && (
                     <p className="text-[11px] text-muted-foreground mt-2 truncate">{midi.source_ref}</p>

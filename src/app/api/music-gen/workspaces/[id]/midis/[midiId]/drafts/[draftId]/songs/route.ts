@@ -54,6 +54,15 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}))
     const styleUsed: string = body.style_used ?? ''
+    const originalRatio: number | null = body.original_ratio ?? null
+    const styleWeight: number | null = body.style_weight ?? null
+    const weirdness: number | null = body.weirdness ?? null
+    const vocalGender: string | null = body.vocal_gender ?? null
+
+    // 이전 실패한 songs 정리 (새 생성 시 깨끗한 상태)
+    db.prepare(
+      "DELETE FROM draft_songs WHERE draft_row_id = ? AND status IN ('failed', 'pending')"
+    ).run(draftId)
 
     const now = Date.now()
     const songs = [
@@ -62,13 +71,13 @@ export async function POST(
     ]
 
     const insert = db.prepare(`
-      INSERT INTO draft_songs (id, draft_row_id, style_used, sort_order, status, created_at)
-      VALUES (?, ?, ?, ?, 'pending', ?)
+      INSERT INTO draft_songs (id, draft_row_id, style_used, original_ratio, style_weight, weirdness, vocal_gender, sort_order, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
     `)
 
     const insertMany = db.transaction(() => {
       for (const s of songs) {
-        insert.run(s.id, draftId, styleUsed, s.sort_order, now + s.sort_order)
+        insert.run(s.id, draftId, styleUsed, originalRatio, styleWeight, weirdness, vocalGender, s.sort_order, now + s.sort_order)
       }
     })
     insertMany()

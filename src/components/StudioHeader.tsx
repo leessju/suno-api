@@ -9,6 +9,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { UserProfileMenu } from './UserProfileMenu'
 import { Breadcrumb } from './Breadcrumb'
 import { useSideNav } from './SideNavProvider'
+import { GlobalPlayBar } from './GlobalPlayBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ interface StudioHeaderProps {
 export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps) {
   const { channels, selectedChannel, setSelectedChannel, isLoading: channelLoading } = useChannel()
   const { accounts, selectedAccount, setSelectedAccount, isLoading: accountLoading } = useSunoAccount()
-  const { collapsed, toggleMobile } = useSideNav()
+  const { collapsed, toggleCollapsed, toggleMobile } = useSideNav()
   const [mounted, setMounted] = useState(false)
   const [channelThumbnails, setChannelThumbnails] = useState<Record<number, string>>({})
 
@@ -87,6 +88,14 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
           </svg>
           <span className={`font-inter text-xl tracking-[0.04em] whitespace-nowrap transition-all duration-200 ${collapsed ? 'opacity-0 w-0' : 'opacity-100'}`} style={{ fontWeight: 400 }}>SyncLens</span>
         </Link>
+        {!collapsed && (
+          <button onClick={toggleCollapsed} title="메뉴 접기"
+            className="hidden md:flex ml-auto p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* 우측: 브레드크럼 + 컨트롤 */}
@@ -96,6 +105,9 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          {/* 글로벌 플레이어 (컴팩트) */}
+          <GlobalPlayBar />
+
           {/* Suno 계정 선택 + 크레딧 (마운트 후, 계정 있을 때만) */}
           {mounted && !accountLoading && accounts.length > 0 && (
             <div className="hidden sm:flex items-center gap-2">

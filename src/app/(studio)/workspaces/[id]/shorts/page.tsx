@@ -336,7 +336,7 @@ export default function ShortsPage({ params }: { params: { id: string } }) {
       {!loading && tracks.length === 0 && (
         <div className="p-6 bg-background border border-border rounded-xl text-center">
           <p className="text-sm text-muted-foreground">
-            워크스페이스에 트랙이 없습니다. Suno 생성 후 트랙이 승인되면 여기에 표시됩니다.
+            워크스페이스에 Cover곡이 없습니다. Cover곡을 생성하고 확정하면 여기에 표시됩니다.
           </p>
         </div>
       )}

@@ -11,8 +11,8 @@ export interface PipelineStep {
 export const PIPELINE_STEPS: PipelineStep[] = [
   { number: 1, label: '채널 선택' },
   { number: 2, label: '워크스페이스' },
-  { number: 3, label: 'MIDI/MP3' },
-  { number: 4, label: '음악 선택', href: 'variants' },
+  { number: 3, label: '원곡 업로드' },
+  { number: 4, label: 'Cover곡 선택', href: 'variants' },
   { number: 5, label: '이미지 연결', href: 'images' },
   { number: 6, label: '렌더링' },
   { number: 7, label: '머지 순서', href: 'merge' },

@@ -7,12 +7,12 @@ import { useEffect, useState } from 'react'
 const PATH_LABELS: Record<string, string> = {
   channels: '채널',
   workspaces: '워크스페이스',
-  midis: '미디파일',
-  tracks: '노래리스트',
+  midis: '원곡',
+  tracks: 'Cover곡',
   renders: '렌더영상',
   uploads: '업로드영상',
   assets: '에셋관리',
-  generate: '노래 만들기',
+  generate: 'Cover곡 만들기',
   settings: '설정',
   profile: '프로필',
   'suno-accounts': 'Suno 계정',
@@ -39,6 +39,8 @@ function getLabel(segment: string, resolved?: Record<string, string>): string {
 
 // ws_ 접두사로 시작하는 워크스페이스 ID 패턴
 const isWorkspaceId = (s: string) => s.startsWith('ws_')
+// YouTube 채널 ID 패턴 (UC로 시작하는 24자)
+const isYoutubeChannelId = (s: string) => /^UC[\w-]{22}$/i.test(s)
 // 순수 UUID/숫자 동적 세그먼트 (생략 대상)
 const isDynamic = (s: string) => /^[0-9a-f-]{8,}$/.test(s) || /^\d+$/.test(s) || /^wm_/.test(s)
 // 해당 경로 자체에 페이지가 없는 중간 세그먼트 (링크 없이 텍스트만 표시)
@@ -52,22 +54,34 @@ export function Breadcrumb() {
     if (!pathname) return
     const segments = pathname.split('/').filter(Boolean)
     const wsIds = segments.filter(isWorkspaceId)
-    if (wsIds.length === 0) return
+    const ytIds = segments.filter(isYoutubeChannelId)
+    if (wsIds.length === 0 && ytIds.length === 0) return
 
-    const missing = wsIds.filter(id => !resolved[id])
+    const missing = [...wsIds, ...ytIds].filter(id => !resolved[id])
     if (missing.length === 0) return
 
-    Promise.all(
-      missing.map(id =>
-        fetch(`/api/music-gen/workspaces/${id}`)
+    const fetches = missing.map(id => {
+      if (isYoutubeChannelId(id)) {
+        // 채널 목록에서 youtube_channel_id로 매칭하여 채널명 resolve
+        return fetch('/api/music-gen/channels')
           .then(r => r.ok ? r.json() : null)
           .then(data => {
-            const name = data?.name ?? data?.data?.name
-            return name ? { id, name } : null
+            const channels = Array.isArray(data) ? data : (data?.data ?? [])
+            const ch = channels.find((c: { youtube_channel_id: string }) => c.youtube_channel_id === id)
+            return ch ? { id, name: ch.channel_name } : null
           })
           .catch(() => null)
-      )
-    ).then(results => {
+      }
+      return fetch(`/api/music-gen/workspaces/${id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          const name = data?.name ?? data?.data?.name
+          return name ? { id, name } : null
+        })
+        .catch(() => null)
+    })
+
+    Promise.all(fetches).then(results => {
       const updates: Record<string, string> = {}
       for (const r of results) {
         if (r) updates[r.id] = r.name
@@ -88,8 +102,8 @@ export function Breadcrumb() {
   let built = ''
   for (const seg of segments) {
     built += `/${seg}`
-    if (isWorkspaceId(seg)) {
-      // 워크스페이스 ID는 이름으로 표시 (로딩 중엔 임시 표시 생략)
+    if (isWorkspaceId(seg) || isYoutubeChannelId(seg)) {
+      // 워크스페이스/YouTube ID는 이름으로 표시 (로딩 중엔 임시 표시 생략)
       const name = resolved[seg]
       if (name) {
         crumbs.push({ label: name, href: built })

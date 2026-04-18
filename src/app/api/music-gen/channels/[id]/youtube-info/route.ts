@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import * as channelsRepo from '@/lib/music-gen/repositories/channels';
 import { ok, err, handleError } from '@/lib/music-gen/api-helpers';
+import { requireUser } from '@/lib/auth/guards';
+import { getApiKey } from '@/lib/music-gen/api-keys';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -91,19 +93,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const channelId = parseInt(id, 10);
     if (isNaN(channelId)) return err('INVALID_INPUT', 'id must be a number', 400);
 
+    // 인증된 유저의 DB 키를 우선 사용, 없으면 env 폴백
+    const { user } = await requireUser()
+    const apiKey = getApiKey('youtube_api_key', user?.id ?? undefined);
+
     const channel = channelsRepo.findById(channelId);
     if (!channel) return err('CHANNEL_NOT_FOUND', `Channel ${channelId} not found`, 404);
 
     const youtubeId = channel.youtube_channel_id;
     if (!youtubeId) return err('NO_YOUTUBE_ID', 'Channel has no youtube_channel_id', 400);
 
-    const apiKey = process.env.YOUTUBE_API_KEY;
-
     if (apiKey) {
-      const isHandle = youtubeId.startsWith('@');
-      const idParam = isHandle
-        ? `forHandle=${encodeURIComponent(youtubeId.slice(1))}`
-        : `id=${encodeURIComponent(youtubeId)}`;
+      const idParam = `id=${encodeURIComponent(youtubeId)}`;
 
       const apiUrl = `https://www.googleapis.com/youtube/v3/channels?part=snippet,brandingSettings,statistics,contentDetails&${idParam}&key=${apiKey}`;
       const res = await fetch(apiUrl, { next: { revalidate: 3600 } });
@@ -144,9 +145,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
 
     // Fallback: YouTube oEmbed (no API key needed)
-    const channelUrl = youtubeId.startsWith('@')
-      ? `https://www.youtube.com/${youtubeId}`
-      : `https://www.youtube.com/channel/${youtubeId}`;
+    const channelUrl = `https://www.youtube.com/channel/${youtubeId}`;
 
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(channelUrl)}&format=json`;
     const res = await fetch(oembedUrl, { next: { revalidate: 3600 } });

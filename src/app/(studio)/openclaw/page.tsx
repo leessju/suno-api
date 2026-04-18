@@ -61,7 +61,7 @@ export default async function OpenClawPage() {
               <p className="text-xs text-muted-foreground font-mono">{loop.schedule_cron}</p>
               {loop.last_run_at && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  마지막 실행: {new Date(loop.last_run_at).toLocaleString('ko-KR')}
+                  마지막 실행: {((d) => `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)(new Date(loop.last_run_at))}
                 </p>
               )}
             </div>
