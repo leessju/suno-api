@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ok, err, handleError } from '@/lib/music-gen/api-helpers'
 import { requireUser } from '@/lib/auth/guards'
+import { isAdmin } from '@/lib/auth/rbac'
 import {
   getAllSystemSettings,
   setSystemSetting,
@@ -14,8 +15,9 @@ const VALID_KEYS = new Set(SYSTEM_SETTINGS.map(s => s.key))
 
 export async function GET() {
   try {
-    const { response } = await requireUser()
+    const { user, response } = await requireUser()
     if (response) return response
+    if (!isAdmin(user.id)) return err('FORBIDDEN', '관리자 권한이 필요합니다.', 403)
 
     const all = getAllSystemSettings()
     // 비밀 키 마스킹
@@ -34,8 +36,9 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { response } = await requireUser()
+    const { user, response } = await requireUser()
     if (response) return response
+    if (!isAdmin(user.id)) return err('FORBIDDEN', '관리자 권한이 필요합니다.', 403)
 
     const { key, value } = await req.json()
     if (!key || !VALID_KEYS.has(key)) {

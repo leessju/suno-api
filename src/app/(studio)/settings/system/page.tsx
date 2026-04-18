@@ -21,6 +21,7 @@ const SETTINGS: SettingConfig[] = [
   { key: 'r2_secret_access_key', label: 'Secret Access Key', hint: 'R2 시크릿 키', secret: true, group: 'Cloudflare / R2' },
   { key: 'r2_endpoint', label: 'Endpoint', hint: 'R2 엔드포인트 URL', secret: false, group: 'Cloudflare / R2' },
   { key: 'suno_video_root', label: 'Suno Video Root', hint: 'suno-video 프로젝트 경로', secret: false, group: '경로 설정' },
+  { key: 'render_output_dir', label: '렌더 출력 경로', hint: '영상 렌더링 출력 디렉토리 (기본: data/renders)', secret: false, group: '경로 설정' },
 ]
 
 const GROUPS = [...new Set(SETTINGS.map(s => s.group))]

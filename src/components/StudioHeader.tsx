@@ -9,6 +9,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { UserProfileMenu } from './UserProfileMenu'
 import { Breadcrumb } from './Breadcrumb'
 import { useSideNav } from './SideNavProvider'
+import { useJobStats } from '@/hooks/useJobStats'
 import { GlobalPlayBar } from './GlobalPlayBar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -28,6 +29,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
   const { channels, selectedChannel, setSelectedChannel, isLoading: channelLoading } = useChannel()
   const { accounts, selectedAccount, setSelectedAccount, isLoading: accountLoading } = useSunoAccount()
   const { collapsed, toggleCollapsed, toggleMobile } = useSideNav()
+  const jobStats = useJobStats()
   const [mounted, setMounted] = useState(false)
   const [channelThumbnails, setChannelThumbnails] = useState<Record<number, string>>({})
 

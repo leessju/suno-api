@@ -87,41 +87,7 @@ const navItemInactive = "text-muted-foreground hover:text-foreground hover:bg-ac
 const iconItemActive = "bg-accent text-foreground"
 const iconItemInactive = "text-muted-foreground hover:bg-accent hover:text-foreground"
 
-interface JobStats {
-  pending: number
-  running: number
-  done: number
-  failed: number
-}
-
-function useJobStats() {
-  const [stats, setStats] = useState<JobStats>({ pending: 0, running: 0, done: 0, failed: 0 })
-
-  useEffect(() => {
-    let cancelled = false
-    async function poll() {
-      try {
-        const res = await fetch('/api/music-gen/queue')
-        if (!res.ok || cancelled) return
-        const json = await res.json()
-        const s = json?.stats ?? json?.data ?? json
-        if (!cancelled) {
-          setStats({
-            pending: s?.pending ?? 0,
-            running: s?.running ?? 0,
-            done: s?.done ?? 0,
-            failed: s?.failed ?? 0,
-          })
-        }
-      } catch { /* ignore */ }
-    }
-    poll()
-    const id = setInterval(poll, 2000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [])
-
-  return stats
-}
+import { useJobStats } from '@/hooks/useJobStats'
 
 function SideNavContent({ email }: { email: string }) {
   const pathname = usePathname()
@@ -255,11 +221,6 @@ function SideNavContent({ email }: { email: string }) {
               <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   회원권한 관리
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild onSelect={closeMobile}>
-                <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
-                  Job 큐
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -419,11 +380,6 @@ function SideNavContent({ email }: { email: string }) {
               <DropdownMenuItem asChild>
                 <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   회원권한 관리
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
-                  Job 큐
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
