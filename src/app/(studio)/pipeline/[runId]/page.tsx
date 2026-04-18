@@ -108,7 +108,7 @@ export default async function PipelineDetailPage({
   const songIndices = Object.keys(songs).map(Number).sort((a, b) => a - b)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <AutoRefresh />
       {/* 헤더 */}
       <div className="flex items-center gap-3">

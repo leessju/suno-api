@@ -123,14 +123,14 @@ export default function ChannelDetailPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 pb-0">
-      <div className="px-6 pt-6 mb-4">
+      <div className="pt-2 mb-4">
         <h1 className="text-xl font-semibold text-foreground">{channel.channel_name}</h1>
         {channel.channel_handle && (
           <p className="text-sm text-muted-foreground mt-1">@{channel.channel_handle}</p>
         )}
       </div>
 
-      <div className="flex gap-2 mb-0 border-b border-border px-6 overflow-x-auto">
+      <div className="flex gap-2 mb-0 border-b border-border overflow-x-auto">
         {(['about', 'prompt'] as const).map(tab => (
           <Button
             key={tab}
@@ -148,7 +148,7 @@ export default function ChannelDetailPage() {
       </div>
 
       {activeTab === 'about' && (
-        <div className="flex-1 overflow-auto p-4 space-y-4">
+        <div className="flex-1 overflow-auto pt-4 space-y-4">
           {youtubeLoading ? (
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
@@ -278,7 +278,7 @@ export default function ChannelDetailPage() {
       )}
 
       {activeTab === 'prompt' && (
-        <div className="flex flex-col flex-1 p-4 gap-3 min-h-0">
+        <div className="flex flex-col flex-1 pt-4 gap-3 min-h-0">
           <h2 className="text-base font-semibold text-foreground flex-shrink-0">채널별 Gemini 시스템 프롬프트</h2>
           <Textarea
             value={prompt}
