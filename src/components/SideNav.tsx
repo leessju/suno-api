@@ -200,7 +200,7 @@ function SideNavContent({ email }: { email: string }) {
                     <div className="pl-2">{section.custom}</div>
                   ) : (
                     section.items.map(item => (
-                      <Link key={item.href} href={item.href}
+                      <Link key={item.href} href={item.href} onClick={closeMobile}
                         className={`flex items-center justify-between px-3 py-2.5 pl-9 text-sm transition-colors ${
                           isActive(item.href)
                             ? 'bg-accent text-foreground border-l-2 border-foreground'
@@ -226,38 +226,38 @@ function SideNavContent({ email }: { email: string }) {
         </div>
 
         <div className="border-t border-border py-2">
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button className={`${navItemBase} w-full ${isActive('/settings') || isActive('/admin') ? navItemActive : navItemInactive}`}>
                 <SettingsIcon />
                 설정
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-52">
+            <DropdownMenuContent side="top" align="start" className="w-52" noPortal>
               <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">일반</p>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/settings/suno-accounts" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   Suno 계정관리
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/settings/keys" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   나의 키관리
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <p className="px-3 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">관리</p>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/settings/system" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   시스템정보 관리
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   회원권한 관리
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/admin/queue" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   Job 큐
                 </Link>
@@ -323,6 +323,7 @@ function SideNavContent({ email }: { email: string }) {
       {/* 모바일 Sheet */}
       <Sheet open={mobileOpen} onOpenChange={closeMobile}>
         <SheetContent side="left" className="w-64 p-0 bg-background border-r border-border" aria-label="사이드 메뉴">
+          <SheetTitle className="sr-only">메뉴</SheetTitle>
           <div className="flex flex-col h-full">
             <SidebarMenuContent />
           </div>
@@ -363,7 +364,7 @@ function SideNavContent({ email }: { email: string }) {
                     <div className="pl-2">{section.custom}</div>
                   ) : (
                     section.items.map(item => (
-                      <Link key={item.href} href={item.href}
+                      <Link key={item.href} href={item.href} onClick={closeMobile}
                         className={`flex items-center justify-between px-3 py-2.5 pl-9 text-sm transition-colors ${
                           isActive(item.href)
                             ? 'bg-accent text-foreground border-l-2 border-foreground'
@@ -389,7 +390,7 @@ function SideNavContent({ email }: { email: string }) {
         </div>
 
         <div className="border-t border-border py-2">
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <button className={`${navItemBase} w-full ${isActive('/settings') || isActive('/admin') ? navItemActive : navItemInactive}`}>
                 <SettingsIcon />

@@ -158,7 +158,7 @@ function WaveformBar({ audioUrl, isDone }: { audioUrl: string | null; isDone: bo
   }
 
   if (bars.length === 0) {
-    return <div className="flex-1 min-w-[80px] max-w-[250px] h-8 flex-shrink" />
+    return <div className="flex-1 min-w-[80px] max-w-[250px] h-8 flex-shrink bg-accent/20 rounded" />
   }
 
   return (
@@ -239,108 +239,109 @@ function DraftSongList({
         const confirmed = song.is_confirmed === 1
 
         return (
-          <div key={song.id} className={`flex items-center gap-2 px-3 py-2 bg-background hover:bg-accent/30 transition-colors ${confirmed ? 'ring-1 ring-inset ring-green-400/40' : ''}`}>
-            {/* 체크박스 */}
-            <input
-              type="checkbox"
-              checked={confirmed}
-              disabled={isLoading || isFailed}
-              onChange={() => toggleConfirm(song)}
-              className="w-4 h-4 accent-primary flex-shrink-0"
-            />
-
-            {/* 커버 이미지 */}
-            {song.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={song.image_url}
-                alt={label}
-                className="w-10 h-10 object-cover rounded flex-shrink-0 border border-border"
+          <div key={song.id} className={`px-3 py-2 bg-background hover:bg-accent/30 transition-colors ${confirmed ? 'ring-1 ring-inset ring-green-400/40' : ''}`}>
+            {/* 상단: 체크박스 + 이미지 + 제목 + 버튼 */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                disabled={isLoading || isFailed}
+                onChange={() => toggleConfirm(song)}
+                className="w-4 h-4 accent-primary flex-shrink-0"
               />
-            ) : (
-              <div className="w-10 h-10 bg-accent rounded flex-shrink-0 border border-border flex items-center justify-center">
-                <svg className="w-4 h-4 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-                </svg>
-              </div>
-            )}
 
-            {/* 제목 + 상태 */}
-            <div className="flex-1 min-w-0">
-              {isLoading ? (
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <svg className="w-3 h-3 animate-spin text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  {song.title ? <span className="text-foreground font-medium truncate block">{song.title}</span> : `${label} 생성 중...`}
-                </div>
-              ) : isFailed ? (
-                <p className="text-[11px] text-red-500 truncate">{song.error_msg || `${label} 실패`}</p>
+              {song.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={song.image_url}
+                  alt={label}
+                  className="w-10 h-10 object-cover rounded flex-shrink-0 border border-border"
+                />
               ) : (
-                <div>
-                  <p className="text-[11px] font-medium text-foreground truncate">{song.title || label}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {song.duration != null && `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, '0')}`}
-                    {song.duration != null && song.original_ratio != null && ' · '}
-                    {song.original_ratio != null && `${song.original_ratio}%`}
-                  </p>
+                <div className="w-10 h-10 bg-accent rounded flex-shrink-0 border border-border flex items-center justify-center">
+                  <svg className="w-4 h-4 text-muted-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                  </svg>
                 </div>
               )}
-            </div>
 
-            {/* Waveform */}
-            <WaveformBar audioUrl={song.audio_url} isDone={isDone} />
-
-            {/* 오디오 재생 버튼 */}
-            {isDone && song.audio_url ? (
-              <SongPlayButton song={song} label={song.title || label} />
-            ) : (
-              <div style={{ width: '40px' }} className="flex-shrink-0" />
-            )}
-
-            {/* 별점 */}
-            {isDone && (
-              <div className="hidden sm:flex items-center gap-0 flex-shrink-0">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(song, star)}
-                    className="p-0 w-5 h-5 flex items-center justify-center hover:scale-125 transition-transform"
-                    title={`${star}점`}
-                  >
-                    <svg className={`w-3.5 h-3.5 ${star <= (song.rating || 0) ? 'text-yellow-400' : 'text-muted-foreground/40'}`} viewBox="0 0 20 20" fill={star <= (song.rating || 0) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              <div className="flex-1 min-w-0">
+                {isLoading ? (
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <svg className="w-3 h-3 animate-spin text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                     </svg>
-                  </button>
-                ))}
+                    {song.title ? <span className="text-foreground font-medium truncate block">{song.title}</span> : `${label} 생성 중...`}
+                  </div>
+                ) : isFailed ? (
+                  <p className="text-[11px] text-red-500 truncate">{song.error_msg || `${label} 실패`}</p>
+                ) : (
+                  <div>
+                    <p className="text-[11px] font-medium text-foreground truncate">{song.title || label}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {song.duration != null && `${Math.floor(song.duration / 60)}:${String(Math.round(song.duration % 60)).padStart(2, '0')}`}
+                      {song.duration != null && song.original_ratio != null && ' · '}
+                      {song.original_ratio != null && `${song.original_ratio}%`}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* 확정 버튼 */}
-            <button
-              onClick={() => toggleConfirm(song)}
-              disabled={isLoading || isFailed}
-              className={`px-2 py-1 text-[11px] font-medium rounded border transition-colors flex-shrink-0 ${
-                confirmed
-                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-400/40 hover:bg-green-500/20'
-                  : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-foreground'
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-              title="확정 (영상 만들기 대상)"
-            >
-              {confirmed ? '확정됨' : '확정'}
-            </button>
+              {isDone && song.audio_url ? (
+                <SongPlayButton song={song} label={song.title || label} />
+              ) : (
+                <div style={{ width: '40px' }} className="flex-shrink-0" />
+              )}
 
-            {/* 삭제 */}
-            <button
-              onClick={() => handleSongDeleteClick(song)}
-              className="p-1 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
-              title="삭제"
-            >
+              {/* 별점 — 데스크탑 */}
+              {isDone && (
+                <div className="hidden sm:flex items-center gap-0 flex-shrink-0">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(song, star)}
+                      className="p-0 w-5 h-5 flex items-center justify-center hover:scale-125 transition-transform"
+                      title={`${star}점`}
+                    >
+                      <svg className={`w-3.5 h-3.5 ${star <= (song.rating || 0) ? 'text-yellow-400' : 'text-muted-foreground/40'}`} viewBox="0 0 20 20" fill={star <= (song.rating || 0) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => toggleConfirm(song)}
+                disabled={isLoading || isFailed}
+                className={`hidden sm:inline-flex px-2 py-1 text-[11px] font-medium rounded border transition-colors flex-shrink-0 ${
+                  confirmed
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-400/40 hover:bg-green-500/20'
+                    : 'bg-background text-muted-foreground border-border hover:bg-accent hover:text-foreground'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                title="확정 (영상 만들기 대상)"
+              >
+                {confirmed ? '확정됨' : '확정'}
+              </button>
+
+              <button
+                onClick={() => handleSongDeleteClick(song)}
+                className="p-1 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
+                title="삭제"
+              >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
+            </div>
+
+            {/* 하단: Waveform */}
+            {isDone && (
+              <div className="mt-1.5 ml-8">
+                <WaveformBar audioUrl={song.audio_url} isDone={isDone} />
+              </div>
+            )}
           </div>
         )
       })}
@@ -1098,36 +1099,36 @@ export default function MidiDetailPage() {
               <a
                 href={`/api/r2/object/${midi.midi_master.mp3_r2_key}`}
                 download="chords.mp3"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors flex-shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                chords.mp3
+                MIDI
               </a>
             )}
             {midi.audio_url && !midi.audio_url.startsWith('/') && !midi.audio_url.startsWith('data/') && (
               <a
                 href={`/api/r2/object/${midi.audio_url}`}
                 download="source.mp3"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors flex-shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/80 text-foreground text-xs rounded-md transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                원본 오디오
+                원본
               </a>
             )}
             <button
               onClick={() => setShowMakePopup(true)}
-              className="px-3 py-1.5 bg-primary hover:opacity-90 text-primary-foreground text-xs rounded-md transition-opacity flex-shrink-0"
+              className="px-3 py-1.5 bg-primary hover:opacity-90 text-primary-foreground text-xs rounded-md transition-opacity"
             >
               Cover곡 만들기
             </button>
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="px-3 py-1.5 bg-accent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded-md transition-colors disabled:opacity-50 flex-shrink-0"
+              className="px-3 py-1.5 bg-accent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded-md transition-colors disabled:opacity-50"
             >
               {deleting ? '삭제 중...' : '삭제'}
             </button>

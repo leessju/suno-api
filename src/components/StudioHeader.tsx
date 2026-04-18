@@ -110,12 +110,27 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
             <GlobalPlayBar />
           </div>
 
-          {/* 모바일: 크레딧 숫자만 */}
-          {mounted && !accountLoading && selectedAccount?.credits != null && (
-            <span className="sm:hidden text-xs font-bold tabular-nums text-foreground">
-              {selectedAccount.credits.credits_left.toLocaleString()}
-            </span>
-          )}
+          {/* 모바일: 크레딧 배지 */}
+          {mounted && !accountLoading && selectedAccount?.credits != null && (() => {
+            const c = selectedAccount.credits.credits_left
+            const level = c <= 50 ? 'critical' : c <= 100 ? 'warning' : 'ok'
+            const styles = {
+              ok:       { badge: 'bg-emerald-500/10 border-emerald-500/20', num: 'text-emerald-500', sub: 'text-emerald-500/70' },
+              warning:  { badge: 'bg-orange-500/10 border-orange-500/30',   num: 'text-orange-500', sub: 'text-orange-500/70'   },
+              critical: { badge: 'bg-red-500/10 border-red-500/30',          num: 'text-red-500',    sub: 'text-red-500/70'      },
+            }[level]
+            return (
+              <span className={`sm:hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full whitespace-nowrap border ${styles.badge}`}>
+                {level === 'critical' && (
+                  <svg className="w-3 h-3 text-red-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                )}
+                <span className={`text-xs font-bold tabular-nums ${styles.num}`}>{c.toLocaleString()}</span>
+                <span className={`text-[10px] font-medium ${styles.sub}`}>cr</span>
+              </span>
+            )
+          })()}
 
           {/* Suno 계정 선택 + 크레딧 (마운트 후, 계정 있을 때만) */}
           {mounted && !accountLoading && accounts.length > 0 && (
