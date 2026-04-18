@@ -70,7 +70,7 @@ export async function GET(_req: NextRequest) {
               SUM(CASE WHEN ps.status = 'running' THEN 1 ELSE 0 END) as running_steps,
               SUM(CASE WHEN ps.status = 'failed' THEN 1 ELSE 0 END) as failed_steps
        FROM pipeline_runs pr
-       LEFT JOIN channels c ON pr.channel_id = c.id
+       LEFT JOIN channels c ON pr.channel_id = c.id AND c.deleted_at IS NULL
        LEFT JOIN pipeline_steps ps ON pr.id = ps.run_id
        WHERE pr.status IN ('pending', 'running', 'paused')
        GROUP BY pr.id

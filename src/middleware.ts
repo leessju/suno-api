@@ -20,8 +20,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // 기존 Suno API routes 통과 (하위 호환)
-  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/music-gen')) {
+  // 기존 Suno API routes 통과 (하위 호환) — R2 객체는 인증 필요
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/music-gen') && !pathname.startsWith('/api/r2/')) {
     return NextResponse.next()
   }
 

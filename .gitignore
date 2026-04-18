@@ -58,3 +58,4 @@ tmp/
 .omc/
 data/*.db-shm
 data/*.db-wal
+litestream.yml

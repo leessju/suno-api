@@ -25,11 +25,12 @@ export async function POST(req: NextRequest) {
       SELECT ds.id, ds.suno_id, ds.title, ds.audio_url, ds.image_url,
              ds.style_used, ds.sort_order, ds.render_bg_key
       FROM draft_songs ds
-      JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id
-      JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id
+      JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
+      JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id AND wm.deleted_at IS NULL
       WHERE wm.workspace_id = ?
         AND ds.is_confirmed = 1
         AND ds.audio_url IS NOT NULL
+        AND ds.deleted_at IS NULL
       ORDER BY ds.sort_order ASC
     `).all(workspace_id) as Array<{
       id: string
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     `)
 
     const findBackImageStmt = db.prepare(`
-      SELECT id FROM back_images WHERE r2_key = ? LIMIT 1
+      SELECT id FROM back_images WHERE r2_key = ? AND deleted_at IS NULL LIMIT 1
     `)
 
     const insertUsageStmt = db.prepare(`

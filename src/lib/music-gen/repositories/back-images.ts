@@ -14,7 +14,7 @@ export interface BackImage {
 export function list(channelId: number): BackImage[] {
   const db = getDb();
   return db
-    .prepare('SELECT * FROM back_images WHERE channel_id = ? ORDER BY display_order ASC, id ASC')
+    .prepare('SELECT * FROM back_images WHERE channel_id = ? AND deleted_at IS NULL ORDER BY display_order ASC, id ASC')
     .all(channelId) as BackImage[];
 }
 
@@ -28,10 +28,10 @@ export function create(channelId: number, r2Key: string, filename: string, thumb
 
 export function findById(id: number): BackImage | undefined {
   const db = getDb();
-  return db.prepare('SELECT * FROM back_images WHERE id = ?').get(id) as BackImage | undefined;
+  return db.prepare('SELECT * FROM back_images WHERE id = ? AND deleted_at IS NULL').get(id) as BackImage | undefined;
 }
 
 export function remove(id: number): void {
   const db = getDb();
-  db.prepare('DELETE FROM back_images WHERE id = ?').run(id);
+  db.prepare('UPDATE back_images SET deleted_at = unixepoch() WHERE id = ?').run(id);
 }

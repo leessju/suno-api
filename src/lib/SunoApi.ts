@@ -10,6 +10,7 @@ import { paramsCoordinates } from '@2captcha/captcha-solver/dist/structs/2captch
 import { BrowserContext, Page, Locator, chromium, firefox } from 'rebrowser-playwright-core';
 import { createCursor, Cursor } from 'ghost-cursor-playwright';
 import { promises as fs } from 'fs';
+import { getApiKey } from '@/lib/music-gen/api-keys';
 import path from 'node:path';
 import { getDb } from './music-gen/db';
 
@@ -29,7 +30,7 @@ function getSunoAccountsFromDb(): Array<{id: number; label: string; cookie: stri
   try {
     const db = getDb();
     const rows = db.prepare(
-      'SELECT id, label, cookie FROM suno_accounts WHERE is_active = 1 ORDER BY id'
+      'SELECT id, label, cookie FROM suno_accounts WHERE is_active = 1 AND deleted_at IS NULL ORDER BY id'
     ).all() as Array<{id: number; label: string; cookie: string}>;
     return rows;
   } catch {
@@ -215,16 +216,17 @@ function sanitize(data: any): any {
  * @throws Error if required environment variables are missing or invalid
  */
 function validateEnvironment(): void {
-  // Check that at least one Suno cookie is configured (SUNO_COOKIE_1 or legacy SUNO_COOKIE)
-  const hasCookie = process.env.SUNO_COOKIE_1 || process.env.SUNO_COOKIE;
-  if (!hasCookie) {
+  // Check that at least one Suno cookie is configured (DB or env)
+  const hasDbAccounts = getSunoAccountsFromDb().length > 0;
+  const hasEnvCookie = process.env.SUNO_COOKIE_1 || process.env.SUNO_COOKIE;
+  if (!hasDbAccounts && !hasEnvCookie) {
     throw new Error(
-      'Missing required environment variable: SUNO_COOKIE_1 (or legacy SUNO_COOKIE). Please set it in your .env file.'
+      'Suno 계정이 설정되지 않았습니다. 설정 > Suno 계정에서 추가하거나 .env에 SUNO_COOKIE_1을 설정하세요.'
     );
   }
 
   const optionalVars = {
-    TWOCAPTCHA_KEY: process.env.TWOCAPTCHA_KEY
+    TWOCAPTCHA_KEY: getApiKey('two_captcha_key')
   };
 
   const invalid: string[] = [];
@@ -522,7 +524,7 @@ class SunoApi {
   private deviceId?: string;
   private userAgent?: string;
   private cookies: Record<string, string | undefined>;
-  private solver = new Solver(`${process.env.TWOCAPTCHA_KEY}`);
+  private solver = new Solver(getApiKey('two_captcha_key') ?? '');
   private ghostCursorEnabled = yn(process.env.BROWSER_GHOST_CURSOR, { default: false });
   private cursor?: Cursor;
 

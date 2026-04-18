@@ -13,7 +13,7 @@ export async function PATCH(
     const { songId } = await params
     const db = getDb()
 
-    const existing = db.prepare('SELECT id FROM draft_songs WHERE id = ?').get(songId)
+    const existing = db.prepare('SELECT id FROM draft_songs WHERE id = ? AND deleted_at IS NULL').get(songId)
     if (!existing) return err('NOT_FOUND', 'song not found', 404)
 
     const body = await req.json().catch(() => ({}))

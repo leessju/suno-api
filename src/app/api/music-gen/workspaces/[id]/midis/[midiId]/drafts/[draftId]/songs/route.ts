@@ -23,12 +23,12 @@ export async function GET(
 
     // draft_row 소유권 확인
     const draft = db.prepare(
-      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ?'
+      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ? AND deleted_at IS NULL'
     ).get(draftId, midiId)
     if (!draft) return err('NOT_FOUND', 'draft row not found', 404)
 
     const songs = db.prepare(
-      'SELECT * FROM draft_songs WHERE draft_row_id = ? ORDER BY created_at ASC'
+      'SELECT * FROM draft_songs WHERE draft_row_id = ? AND deleted_at IS NULL ORDER BY created_at ASC'
     ).all(draftId)
 
     return ok(songs)
@@ -48,7 +48,7 @@ export async function POST(
 
     // draft_row 소유권 확인
     const draft = db.prepare(
-      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ?'
+      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ? AND deleted_at IS NULL'
     ).get(draftId, midiId)
     if (!draft) return err('NOT_FOUND', 'draft row not found', 404)
 
@@ -83,7 +83,7 @@ export async function POST(
     insertMany()
 
     const inserted = db.prepare(
-      `SELECT * FROM draft_songs WHERE id IN (${songs.map(() => '?').join(',')}) ORDER BY created_at ASC`
+      `SELECT * FROM draft_songs WHERE id IN (${songs.map(() => '?').join(',')}) AND deleted_at IS NULL ORDER BY created_at ASC`
     ).all(...songs.map(s => s.id))
 
     // job enqueue (best-effort — songs INSERT는 이미 완료됨)

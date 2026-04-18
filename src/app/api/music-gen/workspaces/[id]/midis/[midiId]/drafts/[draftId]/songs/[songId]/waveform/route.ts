@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const ws = db.prepare('SELECT suno_account_id FROM workspaces WHERE id = ?').get(workspaceId) as { suno_account_id: number | null } | undefined
     if (!ws) return err('NOT_FOUND', 'workspace not found', 404)
 
-    const song = db.prepare('SELECT suno_id, status, waveform_data FROM draft_songs WHERE id = ?').get(songId) as { suno_id: string | null; status: string; waveform_data: string | null } | undefined
+    const song = db.prepare('SELECT suno_id, status, waveform_data FROM draft_songs WHERE id = ? AND deleted_at IS NULL').get(songId) as { suno_id: string | null; status: string; waveform_data: string | null } | undefined
     if (!song) return err('NOT_FOUND', 'song not found', 404)
     if (!song.suno_id) return err('BAD_REQUEST', 'suno_id 미설정', 400)
     if (song.status !== 'done') return err('BAD_REQUEST', 'mp3 생성이 완료되지 않았습니다', 400)

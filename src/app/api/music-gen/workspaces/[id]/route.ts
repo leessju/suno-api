@@ -15,8 +15,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       SELECT w.*, c.channel_name, c.youtube_channel_id, c.resource_path,
              sa.label as suno_account_label
       FROM workspaces w
-      LEFT JOIN channels c ON c.id = w.channel_id
-      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id
+      LEFT JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
+      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id AND sa.deleted_at IS NULL
       WHERE w.id = ? AND (w.user_id = ? OR w.user_id IS NULL)
     `).get(id, user.id)
 
@@ -24,10 +24,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const midis = db.prepare(`
       SELECT wm.*, mm.bpm, mm.key_signature, mm.chord_json,
-             (SELECT COUNT(*) FROM draft_songs ds JOIN midi_draft_rows mdr ON ds.draft_row_id = mdr.id WHERE mdr.workspace_midi_id = wm.id AND ds.status = 'done') as cover_count
+             (SELECT COUNT(*) FROM draft_songs ds JOIN midi_draft_rows mdr ON ds.draft_row_id = mdr.id WHERE mdr.workspace_midi_id = wm.id AND ds.status = 'done' AND ds.deleted_at IS NULL AND mdr.deleted_at IS NULL) as cover_count
       FROM workspace_midis wm
       LEFT JOIN midi_masters mm ON mm.id = wm.midi_master_id
-      WHERE wm.workspace_id = ?
+      WHERE wm.workspace_id = ? AND wm.deleted_at IS NULL
       ORDER BY wm.created_at ASC
     `).all(id) as unknown[]
 
@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (name !== undefined && ws.suno_workspace_id && ws.suno_account_id) {
       try {
         const acctRow = db.prepare(
-          'SELECT cookie FROM suno_accounts WHERE id = ?'
+          'SELECT cookie FROM suno_accounts WHERE id = ? AND deleted_at IS NULL'
         ).get(ws.suno_account_id) as { cookie: string } | undefined
 
         if (acctRow?.cookie) {
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const updated = db.prepare(`
       SELECT w.*, c.channel_name FROM workspaces w
-      LEFT JOIN channels c ON c.id = w.channel_id
+      LEFT JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
       WHERE w.id = ?
     `).get(id)
     return ok(updated)

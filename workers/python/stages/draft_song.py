@@ -65,7 +65,7 @@ async def handle_draft_song_generate(payload: dict, db_path: str = './data/music
     try:
         # cover_clip_id 가드
         midi = conn.execute(
-            'SELECT suno_cover_clip_id FROM workspace_midis WHERE id = ?', (midi_id,)
+            'SELECT suno_cover_clip_id FROM workspace_midis WHERE id = ? AND deleted_at IS NULL', (midi_id,)
         ).fetchone()
         if not midi or not midi['suno_cover_clip_id']:
             logger.error(f"suno_cover_clip_id 미설정: midi={midi_id}")
@@ -82,7 +82,7 @@ async def handle_draft_song_generate(payload: dict, db_path: str = './data/music
 
         # 3. draft_row에서 lyrics + style_used 로드
         row = conn.execute(
-            'SELECT lyrics, selected_style, made_title, title_en FROM midi_draft_rows WHERE id = ?', (draft_row_id,)
+            'SELECT lyrics, selected_style, made_title, title_en FROM midi_draft_rows WHERE id = ? AND deleted_at IS NULL', (draft_row_id,)
         ).fetchone()
         if not row:
             _fail_songs(conn, draft_song_ids, f'draft_row 없음: {draft_row_id}')
@@ -92,7 +92,7 @@ async def handle_draft_song_generate(payload: dict, db_path: str = './data/music
         title = row['made_title'] or row['title_en'] or 'Untitled'
         # draft_songs.style_used 우선, 없으면 draft_row.selected_style fallback
         songs = conn.execute(
-            'SELECT id, style_used, original_ratio, style_weight, weirdness, vocal_gender FROM draft_songs WHERE id IN ({}) ORDER BY sort_order ASC'.format(
+            'SELECT id, style_used, original_ratio, style_weight, weirdness, vocal_gender FROM draft_songs WHERE id IN ({}) AND deleted_at IS NULL ORDER BY sort_order ASC'.format(
                 ','.join('?' * len(draft_song_ids))
             ),
             draft_song_ids
@@ -273,7 +273,7 @@ async def handle_draft_song_poll(payload: dict, db_path: str = './data/music-gen
 
         # suno_id → draft_song_id 매핑 구성
         song_rows = conn.execute(
-            'SELECT id, suno_id FROM draft_songs WHERE id IN ({})'.format(
+            'SELECT id, suno_id FROM draft_songs WHERE id IN ({}) AND deleted_at IS NULL'.format(
                 ','.join('?' * len(draft_song_ids))
             ),
             draft_song_ids
@@ -330,7 +330,7 @@ async def handle_draft_song_poll(payload: dict, db_path: str = './data/music-gen
                         ws_ch_row = conn.execute(
                             '''SELECT c.youtube_channel_id
                                FROM workspaces w
-                               JOIN channels c ON c.id = w.channel_id
+                               JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
                                WHERE w.id = ?''',
                             (ws_id,)
                         ).fetchone()

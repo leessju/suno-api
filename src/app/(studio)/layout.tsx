@@ -9,6 +9,7 @@ import { SunoAccountProvider } from '@/components/SunoAccountProvider'
 import { SideNavProvider } from '@/components/SideNavProvider'
 import { AudioPlayerProvider } from '@/components/AudioPlayerProvider'
 import { ToastProvider } from '@/components/Toast'
+import { GlobalPlayBar } from '@/components/GlobalPlayBar'
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -34,7 +35,7 @@ export default async function StudioLayout({ children }: { children: React.React
 
             {/* 메인 콘텐츠 */}
             <main className="flex-1 min-w-0 overflow-auto bg-background flex flex-col">
-              <div className="w-full px-4 py-6 sm:px-6 lg:px-8 flex-1 flex flex-col">
+              <div className="w-full px-4 py-6 pb-20 sm:px-6 md:pb-6 lg:px-8 flex-1 flex flex-col">
                 {children}
               </div>
             </main>
@@ -43,6 +44,8 @@ export default async function StudioLayout({ children }: { children: React.React
       </SideNavProvider>
       </SunoAccountProvider>
     </ChannelProvider>
+    {/* 모바일 하단 플레이바 */}
+    <GlobalPlayBar variant="mobile" />
     </AudioPlayerProvider>
     </ToastProvider>
   )

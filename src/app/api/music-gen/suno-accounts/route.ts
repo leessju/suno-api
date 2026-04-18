@@ -13,7 +13,7 @@ export async function GET() {
     const accounts = db.prepare(`
       SELECT id, user_id, label, is_active, created_at
       FROM suno_accounts
-      WHERE user_id = ? OR user_id IS NULL
+      WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NULL
       ORDER BY is_active DESC, id ASC
     `).all(user.id)
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     // 같은 유저의 동일 label 중복 방지
     const existing = db.prepare(
-      'SELECT id FROM suno_accounts WHERE user_id = ? AND label = ?'
+      'SELECT id FROM suno_accounts WHERE user_id = ? AND label = ? AND deleted_at IS NULL'
     ).get(user.id, label)
     if (existing) {
       return err('DUPLICATE', '이미 같은 이름의 Suno 계정이 있습니다.', 409)

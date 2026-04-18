@@ -52,7 +52,7 @@ export async function GET() {
     const db = getDb()
     // 싱글 테넌트: 본인 키 + 시스템 공유 키 모두 표시
     const rows = db
-      .prepare("SELECT * FROM gemini_accounts WHERE user_id = ? OR user_id = 'system' ORDER BY priority ASC, id ASC")
+      .prepare("SELECT * FROM gemini_accounts WHERE (user_id = ? OR user_id = 'system') AND deleted_at IS NULL ORDER BY priority ASC, id ASC")
       .all(user.id) as GeminiAccountRow[]
 
     const masked = rows.map(r => ({
@@ -173,7 +173,7 @@ export async function DELETE(req: NextRequest) {
 
     const db = getDb()
     const result = db.prepare(
-      "DELETE FROM gemini_accounts WHERE id = ? AND (user_id = ? OR user_id = 'system')"
+      "UPDATE gemini_accounts SET deleted_at = unixepoch() WHERE id = ? AND (user_id = ? OR user_id = 'system')"
     ).run(Number(id), user.id)
 
     if (result.changes === 0) {

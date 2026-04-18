@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
       SELECT w.*, c.channel_name, c.youtube_channel_id,
              sa.label as suno_account_label
       FROM workspaces w
-      LEFT JOIN channels c ON c.id = w.channel_id
-      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id
+      LEFT JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
+      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id AND sa.deleted_at IS NULL
       WHERE ${conditions.join(' AND ')}
       ORDER BY w.created_at DESC
       LIMIT 100
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     let validSunoAccountId: number | null = null
     if (suno_account_id) {
       const acct = db.prepare(
-        'SELECT id FROM suno_accounts WHERE id = ? AND (user_id = ? OR user_id IS NULL)'
+        'SELECT id FROM suno_accounts WHERE id = ? AND (user_id = ? OR user_id IS NULL) AND deleted_at IS NULL'
       ).get(suno_account_id, user.id)
       if (!acct) return err('FORBIDDEN', '해당 Suno 계정에 접근 권한이 없습니다.', 403)
       validSunoAccountId = suno_account_id
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     if (validSunoAccountId) {
       try {
         const acctRow = db.prepare(
-          'SELECT cookie FROM suno_accounts WHERE id = ?'
+          'SELECT cookie FROM suno_accounts WHERE id = ? AND deleted_at IS NULL'
         ).get(validSunoAccountId) as { cookie: string } | undefined
 
         if (acctRow?.cookie) {

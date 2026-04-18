@@ -28,11 +28,12 @@ export async function POST(req: NextRequest) {
     const songs = db.prepare(`
       SELECT ds.id, ds.suno_id, ds.sort_order
       FROM draft_songs ds
-      JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id
-      JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id
+      JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
+      JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id AND wm.deleted_at IS NULL
       WHERE wm.workspace_id = ?
         AND ds.is_confirmed = 1
         AND ds.audio_url IS NOT NULL
+        AND ds.deleted_at IS NULL
       ORDER BY ds.sort_order ASC
     `).all(workspace_id) as Array<{ id: string; suno_id: string; sort_order: number }>
 
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       ) u ON u.back_image_id = bi.id
       WHERE bi.channel_id = ?
         AND bi.r2_key LIKE ?
+        AND bi.deleted_at IS NULL
       ORDER BY use_count ASC, RANDOM()
     `).all(channel_id, channel_id, `%/${youtubeId}/thumbnail/%`) as Array<{ id: number; r2_key: string; use_count: number }>
 
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
       ) u ON u.back_image_id = bi.id
       WHERE bi.channel_id = ?
         AND bi.r2_key NOT LIKE ?
+        AND bi.deleted_at IS NULL
       ORDER BY use_count ASC, RANDOM()
     `).all(channel_id, channel_id, `%/${youtubeId}/thumbnail/%`) as Array<{ id: number; r2_key: string; use_count: number }>
 

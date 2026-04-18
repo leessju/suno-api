@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     if (!resolvedChannelName && channelIdParam) {
       const channelId = parseInt(channelIdParam, 10)
       const row = db.prepare(
-        'SELECT channel_name FROM channels WHERE id = ?'
+        'SELECT channel_name FROM channels WHERE id = ? AND deleted_at IS NULL'
       ).get(channelId) as { channel_name: string } | undefined
 
       if (!row) {

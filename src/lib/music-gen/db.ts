@@ -356,4 +356,16 @@ function runMigrations(db: Database.Database): void {
   if (!draftSongCols.some(c => c.name === 'render_bg_key')) {
     db.exec('ALTER TABLE draft_songs ADD COLUMN render_bg_key TEXT;');
   }
+
+  // 028: soft delete — deleted_at 컬럼 추가 (8개 테이블)
+  const softDeleteTables = [
+    'draft_songs', 'midi_draft_rows', 'workspace_midis', 'back_images',
+    'channels', 'suno_accounts', 'gemini_accounts', 'track_images',
+  ];
+  for (const table of softDeleteTables) {
+    const cols = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
+    if (!cols.some(c => c.name === 'deleted_at')) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN deleted_at INTEGER;`);
+    }
+  }
 }

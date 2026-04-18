@@ -20,7 +20,7 @@ export async function POST(
              c.forbidden_words, c.recommended_words,
              c.youtube_channel_id, c.channel_handle, c.created_at as ch_created_at, c.updated_at as ch_updated_at
       FROM workspaces w
-      LEFT JOIN channels c ON c.id = w.channel_id
+      LEFT JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
       WHERE w.id = ?
     `).get(id) as Record<string, unknown> | undefined
 
@@ -46,8 +46,9 @@ export async function POST(
     // 이전 제목 조회 (제목 반복 방지)
     const existingTitles = (db.prepare(`
       SELECT DISTINCT title_en FROM midi_draft_rows
-      WHERE workspace_midi_id IN (SELECT id FROM workspace_midis WHERE workspace_id = ?)
+      WHERE workspace_midi_id IN (SELECT id FROM workspace_midis WHERE workspace_id = ? AND deleted_at IS NULL)
         AND title_en IS NOT NULL AND title_en != ''
+        AND deleted_at IS NULL
     `).all(id) as { title_en: string }[]).map(r => r.title_en)
 
     const { content, model } = await generateContent(channel, emotion_input, null, existingTitles)

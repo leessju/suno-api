@@ -27,10 +27,10 @@ export async function GET(req: NextRequest) {
                w.name as workspace_name,
                wm.label as midi_label
         FROM draft_songs ds
-        JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id
-        JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id
+        JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
+        JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id AND wm.deleted_at IS NULL
         JOIN workspaces w ON w.id = wm.workspace_id
-        WHERE 1=1
+        WHERE ds.deleted_at IS NULL
       `
       const params: (string | number)[] = []
       if (workspaceId) { sql += ' AND wm.workspace_id = ?'; params.push(workspaceId) }
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
              w.name as workspace_name, c.channel_name
       FROM workspace_tracks wt
       LEFT JOIN workspaces w ON w.id = wt.workspace_id
-      LEFT JOIN channels c ON c.id = w.channel_id
+      LEFT JOIN channels c ON c.id = w.channel_id AND c.deleted_at IS NULL
       WHERE 1=1
     `
     const params: (string | number)[] = []

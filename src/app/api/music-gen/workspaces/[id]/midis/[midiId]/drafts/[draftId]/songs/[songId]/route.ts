@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ok, err, handleError } from '@/lib/music-gen/api-helpers'
 import { getDb } from '@/lib/music-gen/db'
+import { deleteObject } from '@/lib/r2'
 
 type Params = { params: Promise<{ id: string; midiId: string; draftId: string; songId: string }> }
 
@@ -14,7 +15,7 @@ export async function PATCH(
     const db = getDb()
 
     const existing = db.prepare(
-      'SELECT id FROM draft_songs WHERE id = ? AND draft_row_id = ?'
+      'SELECT id FROM draft_songs WHERE id = ? AND draft_row_id = ? AND deleted_at IS NULL'
     ).get(songId, draftId)
     if (!existing) return err('NOT_FOUND', 'song not found', 404)
 
@@ -57,11 +58,30 @@ export async function DELETE(
     const { songId, draftId } = await params
     const db = getDb()
 
+    const song = db.prepare(
+      'SELECT audio_url, image_url FROM draft_songs WHERE id = ? AND draft_row_id = ? AND deleted_at IS NULL'
+    ).get(songId, draftId) as { audio_url: string | null; image_url: string | null } | undefined
+
+    if (!song) return err('NOT_FOUND', 'song not found', 404)
+
     const result = db.prepare(
-      'DELETE FROM draft_songs WHERE id = ? AND draft_row_id = ?'
+      'UPDATE draft_songs SET deleted_at = unixepoch() WHERE id = ? AND draft_row_id = ?'
     ).run(songId, draftId)
 
     if (!result.changes) return err('NOT_FOUND', 'song not found', 404)
+
+    const r2Prefix = '/api/r2/object/'
+    if (song.audio_url?.startsWith(r2Prefix)) {
+      try {
+        await deleteObject(song.audio_url.slice(r2Prefix.length))
+      } catch {}
+    }
+    if (song.image_url?.startsWith(r2Prefix)) {
+      try {
+        await deleteObject(song.image_url.slice(r2Prefix.length))
+      } catch {}
+    }
+
     return ok({ deleted: songId })
   } catch (e) {
     return handleError(e)

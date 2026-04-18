@@ -19,6 +19,17 @@ echo "[worker] DB: $MUSIC_GEN_DB_PATH"
 echo "[worker] API: $NEXTJS_API_URL"
 echo "[worker] Python: $(python3 --version 2>&1)"
 
+# Litestream: SQLite → R2 실시간 백업
+if command -v litestream &>/dev/null && [ -f "$ROOT/litestream.yml" ]; then
+  litestream replicate -config "$ROOT/litestream.yml" &
+  litestream_pid=$!
+  echo "[worker] Litestream 백업 시작 (PID=$litestream_pid)"
+  # 종료 시 litestream도 함께 정리
+  trap 'kill -TERM "$child" "$litestream_pid" 2>/dev/null; wait "$child" "$litestream_pid" 2>/dev/null; exit 0' INT TERM
+else
+  echo "[worker] Litestream 미설치 또는 설정 없음 — 백업 비활성"
+fi
+
 RESTARTS=0
 LAST=0
 

@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     const ws = db.prepare(`
       SELECT w.id, w.suno_account_id, w.suno_project_id, sa.cookie
       FROM workspaces w
-      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id
+      LEFT JOIN suno_accounts sa ON sa.id = w.suno_account_id AND sa.deleted_at IS NULL
       WHERE w.id = ? AND (w.user_id = ? OR w.user_id IS NULL)
     `).get(workspaceId, user.id) as { id: string; suno_account_id: number | null; suno_project_id: string | null; cookie: string | null } | undefined
 
@@ -38,7 +38,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
              mm.mp3_r2_key AS master_mp3_key
       FROM workspace_midis wm
       LEFT JOIN midi_masters mm ON mm.id = wm.midi_master_id
-      WHERE wm.id = ? AND wm.workspace_id = ?
+      WHERE wm.id = ? AND wm.workspace_id = ? AND wm.deleted_at IS NULL
     `).get(midiId, workspaceId) as {
       id: string
       audio_url: string | null

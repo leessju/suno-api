@@ -395,7 +395,7 @@ function loadAccountsFromDb(): AccountConfig[] | null {
     const db = getDb();
     const rows = db
       .prepare(
-        'SELECT type, name, api_key, project, location FROM gemini_accounts WHERE is_active = 1 ORDER BY priority ASC, id ASC',
+        'SELECT type, name, api_key, project, location FROM gemini_accounts WHERE is_active = 1 AND deleted_at IS NULL ORDER BY priority ASC, id ASC',
       )
       .all() as Array<{
       type: string;

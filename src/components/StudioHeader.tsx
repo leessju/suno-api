@@ -67,7 +67,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
   return (
     <header className="h-16 flex-shrink-0 bg-background border-b border-border flex z-10">
       {/* 좌측: 로고 영역 (사이드바 폭과 동기화) */}
-      <div className={`flex-shrink-0 flex items-center border-r border-border transition-all duration-200 ${collapsed ? 'w-12 justify-center px-0' : 'w-64 px-4'}`}>
+      <div className={`flex-shrink-0 flex items-center md:border-r border-border transition-all duration-200 ${collapsed ? 'w-12 justify-center px-0' : 'w-auto md:w-64 px-4'}`}>
         {/* 모바일 햄버거 버튼 */}
         <button
           onClick={toggleMobile}
@@ -86,7 +86,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
             <path d="M20 12V8" stroke="#00E5FF" strokeWidth="3" strokeLinecap="round"/>
             <path d="M28 20H32" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.3"/>
           </svg>
-          <span className={`font-inter text-xl tracking-[0.04em] whitespace-nowrap transition-all duration-200 ${collapsed ? 'opacity-0 w-0' : 'opacity-100'}`} style={{ fontWeight: 400 }}>SyncLens</span>
+          <span className={`hidden md:inline font-inter text-xl tracking-[0.04em] whitespace-nowrap transition-all duration-200 ${collapsed ? 'opacity-0 w-0' : 'opacity-100'}`} style={{ fontWeight: 400 }}>SyncLens</span>
         </Link>
         {!collapsed && (
           <button onClick={toggleCollapsed} title="메뉴 접기"
@@ -100,13 +100,22 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
 
       {/* 우측: 브레드크럼 + 컨트롤 */}
       <div className="flex-1 min-w-0 flex items-center px-3 sm:px-6 lg:px-8 gap-2">
-        <div className="min-w-0 overflow-hidden flex-shrink">
+        <div className="hidden md:block min-w-0 overflow-hidden flex-shrink">
           <Breadcrumb />
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          {/* 글로벌 플레이어 (컴팩트) */}
-          <GlobalPlayBar />
+          {/* 글로벌 플레이어 (컴팩트) — 데스크탑 전용 */}
+          <div className="hidden md:flex">
+            <GlobalPlayBar />
+          </div>
+
+          {/* 모바일: 크레딧 숫자만 */}
+          {mounted && !accountLoading && selectedAccount?.credits != null && (
+            <span className="sm:hidden text-xs font-bold tabular-nums text-foreground">
+              {selectedAccount.credits.credits_left.toLocaleString()}
+            </span>
+          )}
 
           {/* Suno 계정 선택 + 크레딧 (마운트 후, 계정 있을 때만) */}
           {mounted && !accountLoading && accounts.length > 0 && (
@@ -149,7 +158,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
                   ))}
                 </SelectContent>
               </Select>
-              <div className="h-4 w-px bg-border" />
+              <div className="hidden md:block h-4 w-px bg-border" />
             </div>
           )}
 
@@ -222,7 +231,7 @@ export function StudioHeader({ userName, userEmail, isAdmin }: StudioHeaderProps
             </div>
           )}
 
-          <div className="h-4 w-px bg-border" />
+          <div className="hidden md:block h-4 w-px bg-border" />
 
           <UserProfileMenu name={userName} email={userEmail} isAdmin={isAdmin} />
 

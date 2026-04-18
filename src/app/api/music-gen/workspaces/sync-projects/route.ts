@@ -16,7 +16,7 @@ export async function POST(_req: NextRequest) {
 
     // 사용자의 Suno 계정 목록 조회
     const accounts = db.prepare(
-      'SELECT id, cookie FROM suno_accounts WHERE user_id = ? OR user_id IS NULL'
+      'SELECT id, cookie FROM suno_accounts WHERE (user_id = ? OR user_id IS NULL) AND deleted_at IS NULL'
     ).all(user.id) as { id: number; cookie: string }[]
 
     if (accounts.length === 0) {

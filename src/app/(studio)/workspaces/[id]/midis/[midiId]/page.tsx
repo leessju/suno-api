@@ -152,17 +152,17 @@ function WaveformBar({ audioUrl, isDone }: { audioUrl: string | null; isDone: bo
   }, [isDone, audioUrl])
 
   if (!isDone || bars === null) {
-    return <div style={{ width: '250px' }} className="h-8 flex-shrink-0 bg-accent/30 rounded flex items-center justify-center">
+    return <div className="flex flex-1 min-w-[80px] max-w-[250px] h-8 flex-shrink bg-accent/30 rounded items-center justify-center">
       {isDone ? <span className="text-[9px] text-muted-foreground">waveform 로딩...</span> : null}
     </div>
   }
 
   if (bars.length === 0) {
-    return <div style={{ width: '250px' }} className="h-8 flex-shrink-0" />
+    return <div className="flex-1 min-w-[80px] max-w-[250px] h-8 flex-shrink" />
   }
 
   return (
-    <div style={{ width: '250px' }} className="h-8 flex-shrink-0 flex items-end gap-px rounded overflow-hidden bg-accent/20 px-0.5">
+    <div className="flex flex-1 min-w-[80px] max-w-[250px] h-8 flex-shrink items-end gap-px rounded overflow-hidden bg-accent/20 px-0.5">
       {bars.map((v, i) => (
         <div
           key={i}
@@ -301,7 +301,7 @@ function DraftSongList({
 
             {/* 별점 */}
             {isDone && (
-              <div className="flex items-center gap-0 flex-shrink-0">
+              <div className="hidden sm:flex items-center gap-0 flex-shrink-0">
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
                     key={star}
@@ -365,6 +365,103 @@ function DraftSongList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+/** 썸네일 클릭 → YouTube 인라인 재생 */
+function ThumbnailPlayer({ thumbnail, sourceType, sourceRef, label }: {
+  thumbnail: string | null
+  sourceType: string
+  sourceRef: string | null
+  label: string | null
+}) {
+  const [playing, setPlaying] = useState(false)
+  const videoId = sourceType === 'youtube_video' && sourceRef
+    ? sourceRef.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1] ?? null
+    : null
+
+  if (playing && videoId) {
+    return (
+      <div className="w-28 h-[63px] rounded flex-shrink-0 border border-border overflow-hidden relative">
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+          title="YouTube"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => videoId && setPlaying(true)}
+      className="w-28 h-[63px] rounded flex-shrink-0 border border-border overflow-hidden relative group"
+      title={videoId ? '클릭하여 재생' : undefined}
+    >
+      {thumbnail ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={thumbnail} alt={label ?? ''} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-accent flex items-center justify-center">
+          <svg className="w-6 h-6 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+          </svg>
+        </div>
+      )}
+      {videoId && (
+        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <svg className="w-6 h-6 text-white drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      )}
+    </button>
+  )
+}
+
+/** 커스텀 미니 오디오 플레이어 — 플레이 버튼 + 시간만, 글로벌 플레이리스트 분리 */
+function LocalAudioPlayer({ src, label }: { src: string; label: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [time, setTime] = useState(0)
+
+  const toggle = () => {
+    const el = audioRef.current
+    if (!el) return
+    if (el.paused) { el.play().catch(() => {}) } else { el.pause() }
+  }
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+  return (
+    <div className="flex items-center gap-1.5 flex-shrink-0">
+      <audio
+        ref={audioRef}
+        src={src}
+        preload="metadata"
+        data-no-bridge
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={e => setTime((e.target as HTMLAudioElement).currentTime)}
+      />
+      <span className="text-[11px] font-medium text-foreground">{label}</span>
+      <button
+        onClick={toggle}
+        className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+          playing ? 'bg-primary text-primary-foreground' : 'bg-accent text-foreground hover:bg-accent/80'
+        }`}
+      >
+        {playing ? (
+          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        ) : (
+          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        )}
+      </button>
+      <span className="text-[10px] text-muted-foreground tabular-nums">{fmt(time)}</span>
     </div>
   )
 }
@@ -902,28 +999,22 @@ export default function MidiDetailPage() {
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Link href={`/workspaces/${id}`} className="hover:text-foreground transition-colors">워크스페이스</Link>
         <span>›</span>
-        <span className="text-foreground truncate max-w-[200px]">{midi.label ?? 'MIDI'}</span>
+        <span className="text-foreground">{midi.label ?? 'MIDI'}</span>
       </div>
 
       {/* 메인 카드 */}
       <div className="bg-background border border-border rounded-lg p-4 space-y-3">
-        {/* 상단: 썸네일 + 기본 정보 */}
-        <div className="flex items-start gap-3">
-          {/* 썸네일 */}
-          {thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={thumbnail}
-              alt={midi.label ?? ''}
-              className="w-28 h-[63px] object-cover rounded flex-shrink-0 border border-border"
-            />
-          ) : (
-            <div className="w-28 h-[63px] bg-accent rounded flex-shrink-0 flex items-center justify-center border border-border">
-              <svg className="w-6 h-6 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
-              </svg>
-            </div>
-          )}
+        {/* 상단: 썸네일 + 기본 정보 + 파이프라인 (우측) */}
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+          {/* 썸네일 + 정보 (모바일에서도 한 줄 유지) */}
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+          {/* 썸네일 / YouTube 인라인 플레이어 */}
+          <ThumbnailPlayer
+            thumbnail={thumbnail}
+            sourceType={midi.source_type}
+            sourceRef={midi.source_ref}
+            label={midi.label}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-sm text-foreground truncate">{midi.label ?? 'MIDI'}</p>
@@ -944,47 +1035,63 @@ export default function MidiDetailPage() {
             {midi.source_type === 'mp3_file' && midi.source_ref && (
               <p className="text-[11px] text-muted-foreground truncate mt-0.5">{midi.source_ref}</p>
             )}
+            {/* 오디오 플레이어 (YouTube 링크 아래) */}
+            {isReady && (
+              <div className="flex items-center gap-3 mt-1.5">
+                {midi.midi_master?.mp3_r2_key && !midi.midi_master.mp3_r2_key.startsWith('/') && (
+                  <LocalAudioPlayer
+                    src={`/api/r2/object/${midi.midi_master.mp3_r2_key}`}
+                    label="MIDI"
+                  />
+                )}
+                {midi.audio_url && !midi.audio_url.startsWith('data/') && (
+                  <LocalAudioPlayer
+                    src={midi.audio_url.startsWith('/') ? midi.audio_url : `/api/r2/object/${midi.audio_url}`}
+                    label="원본"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+          </div>{/* 썸네일 + 정보 끝 */}
+
+          {/* 파이프라인 */}
+          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+            {pipeline.map((step, i) => {
+              const stepIdx = STATUS_ORDER.indexOf(step.key)
+              const isLastStep = i === pipeline.length - 1
+              const isDone = isLastStep ? statusIdx >= stepIdx : statusIdx > stepIdx
+              const isActive = !isDone && midi.status === step.key
+              return (
+                <div key={step.key} className="flex items-center gap-1">
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium transition-colors ${
+                    isDone ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                    : isActive ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                    : 'text-muted-foreground/40'
+                  }`}>
+                    {isDone ? (
+                      <span className="flex items-center gap-0.5">
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        {step.label}
+                      </span>
+                    ) : step.label}
+                  </span>
+                  {i < pipeline.length - 1 && <span className="text-muted-foreground/20 text-[10px]">›</span>}
+                </div>
+              )
+            })}
+            {isProcessing && (
+              <svg className="w-3 h-3 text-amber-500 animate-spin ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+            )}
           </div>
         </div>
 
-        {/* 파이프라인 */}
-        <div className="flex items-center gap-1 flex-wrap">
-          {pipeline.map((step, i) => {
-            const stepIdx = STATUS_ORDER.indexOf(step.key)
-            const isLastStep = i === pipeline.length - 1
-            const isDone = isLastStep ? statusIdx >= stepIdx : statusIdx > stepIdx
-            const isActive = !isDone && midi.status === step.key
-            return (
-              <div key={step.key} className="flex items-center gap-1">
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium transition-colors ${
-                  isDone ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                  : isActive ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
-                  : 'text-muted-foreground/40'
-                }`}>
-                  {isDone ? (
-                    <span className="flex items-center gap-0.5">
-                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      {step.label}
-                    </span>
-                  ) : step.label}
-                </span>
-                {i < pipeline.length - 1 && <span className="text-muted-foreground/20 text-[10px]">›</span>}
-              </div>
-            )
-          })}
-          {isProcessing && (
-            <svg className="w-3 h-3 text-amber-500 animate-spin ml-1 flex-shrink-0" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-          )}
-        </div>
-
-
-
-        {/* 다운로드 + 액션 */}
+        {/* 액션 버튼 */}
         {isReady && (
           <div className="flex items-center gap-2 flex-wrap">
             {midi.midi_master?.mp3_r2_key && !midi.midi_master.mp3_r2_key.startsWith('/') && (
@@ -1454,30 +1561,32 @@ export default function MidiDetailPage() {
                     </div>
                   ) : (
                     <>
-                      <span className="text-[10px] text-muted-foreground tabular-nums block mb-1">{row.originalRatio}%</span>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={row.originalRatio}
-                        onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
-                        className="w-full accent-primary"
-                      />
-                      <div className="flex gap-1 mt-1.5">
-                        {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
-                            className={`flex-1 py-0.5 text-[9px] rounded border transition-colors ${
-                              row.vocalGender === val
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0">{row.originalRatio}%</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={row.originalRatio}
+                          onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
+                          className="flex-1 accent-primary"
+                        />
+                        <div className="flex gap-1 flex-shrink-0">
+                          {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
+                              className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
+                                row.vocalGender === val
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </>
                   )}
@@ -1633,22 +1742,22 @@ export default function MidiDetailPage() {
                           onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
                           className="flex-1 accent-primary"
                         />
-                      </div>
-                      <div className="flex gap-1 mt-1">
-                        {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
-                          <button
-                            key={val}
-                            type="button"
-                            onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
-                            className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
-                              row.vocalGender === val
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
+                        <div className="flex gap-1 flex-shrink-0">
+                          {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
+                              className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
+                                row.vocalGender === val
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </>
                   )}

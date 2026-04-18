@@ -10,7 +10,7 @@ export async function DELETE(
     const { id, trackId } = await params
     const db = getDb()
     const result = db.prepare(
-      'DELETE FROM track_images WHERE workspace_id = ? AND suno_track_id = ?'
+      'UPDATE track_images SET deleted_at = unixepoch() WHERE workspace_id = ? AND suno_track_id = ?'
     ).run(id, trackId)
     if (result.changes === 0) return err('NOT_FOUND', 'Image not found', 404)
     return ok({ deleted: true })

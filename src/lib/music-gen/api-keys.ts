@@ -20,16 +20,21 @@ const ENV_MAP: Record<KeyType, string> = {
  * userId를 생략하면 env 변수만 반환.
  */
 export function getApiKey(keyType: KeyType, userId?: string): string | undefined {
-  if (userId) {
-    try {
-      const db = getDb()
+  try {
+    const db = getDb()
+    if (userId) {
       const row = db
         .prepare('SELECT key_value FROM user_api_keys WHERE user_id = ? AND key_type = ?')
         .get(userId, keyType) as { key_value: string } | undefined
       if (row?.key_value) return row.key_value
-    } catch {
-      // DB 조회 실패 시 env fallback
     }
+    // userId 없어도 DB에서 첫 번째 값 조회
+    const anyRow = db
+      .prepare('SELECT key_value FROM user_api_keys WHERE key_type = ? LIMIT 1')
+      .get(keyType) as { key_value: string } | undefined
+    if (anyRow?.key_value) return anyRow.key_value
+  } catch {
+    // DB 조회 실패 시 env fallback
   }
   return process.env[ENV_MAP[keyType]] || undefined
 }

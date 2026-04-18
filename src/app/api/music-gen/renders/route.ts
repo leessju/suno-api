@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
              ds.title_jp, ds.title_en, ds.suno_song_id, ds.is_confirmed
       FROM track_images ti
       LEFT JOIN workspaces w ON w.id = ti.workspace_id
-      LEFT JOIN draft_songs ds ON ds.suno_song_id = ti.suno_track_id
-      WHERE ${conditions.join(' AND ')}
+      LEFT JOIN draft_songs ds ON ds.suno_song_id = ti.suno_track_id AND ds.deleted_at IS NULL
+      WHERE ${conditions.join(' AND ')} AND ti.deleted_at IS NULL
       ORDER BY ti.assigned_at DESC
       LIMIT 300
     `).all(...params)

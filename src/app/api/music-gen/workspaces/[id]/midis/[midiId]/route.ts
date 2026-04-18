@@ -14,7 +14,7 @@ async function getMidiWithAuth(workspaceId: string, midiId: string, userId: stri
   if (!ws) return null
 
   return db.prepare(
-    'SELECT * FROM workspace_midis WHERE id = ? AND workspace_id = ?'
+    'SELECT * FROM workspace_midis WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
   ).get(midiId, workspaceId) as Record<string, unknown> | undefined
 }
 
@@ -91,7 +91,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const db = getDb()
     // 관련 트랙 workspace_midi_id NULL 처리
     db.prepare('UPDATE workspace_tracks SET workspace_midi_id = NULL WHERE workspace_midi_id = ?').run(midiId)
-    db.prepare('DELETE FROM workspace_midis WHERE id = ?').run(midiId)
+    db.prepare('UPDATE workspace_midis SET deleted_at = unixepoch() WHERE id = ?').run(midiId)
 
     return ok({ deleted: true })
   } catch (e) {

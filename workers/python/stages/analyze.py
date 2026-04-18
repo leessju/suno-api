@@ -406,7 +406,7 @@ async def handle_midi_analyze(payload: dict, db_path: str = './data/music-gen.db
     conn = sqlite3.connect(db_path)
     try:
         row = conn.execute(
-            'SELECT midi_master_id FROM workspace_midis WHERE id = ?',
+            'SELECT midi_master_id FROM workspace_midis WHERE id = ? AND deleted_at IS NULL',
             (workspace_midi_id,),
         ).fetchone()
         midi_master_id = row[0] if row else None

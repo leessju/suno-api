@@ -14,7 +14,7 @@ export async function GET(
     const db = getDb()
     const rows = db.prepare(`
       SELECT * FROM midi_draft_rows
-      WHERE workspace_midi_id = ?
+      WHERE workspace_midi_id = ? AND deleted_at IS NULL
       ORDER BY sort_order ASC, created_at ASC
     `).all(midiId)
     return ok(rows)
@@ -69,7 +69,7 @@ export async function DELETE(
   try {
     const { midiId } = await params
     const db = getDb()
-    const result = db.prepare('DELETE FROM midi_draft_rows WHERE workspace_midi_id = ?').run(midiId)
+    const result = db.prepare('UPDATE midi_draft_rows SET deleted_at = unixepoch() WHERE workspace_midi_id = ?').run(midiId)
     return ok({ deleted: result.changes })
   } catch (e) {
     return handleError(e)

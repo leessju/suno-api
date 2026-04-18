@@ -13,8 +13,8 @@ export async function GET() {
              bi.is_cover, bi.display_order, bi.created_at,
              c.channel_name
       FROM back_images bi
-      JOIN channels c ON c.id = bi.channel_id
-      WHERE bi.is_cover = 1
+      JOIN channels c ON c.id = bi.channel_id AND c.deleted_at IS NULL
+      WHERE bi.is_cover = 1 AND bi.deleted_at IS NULL
       ORDER BY c.channel_name ASC, bi.display_order ASC
     `).all()
     return ok(rows)

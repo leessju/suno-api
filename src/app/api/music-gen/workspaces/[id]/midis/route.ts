@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
              (SELECT COUNT(*) FROM workspace_tracks wt WHERE wt.workspace_midi_id = wm.id) as track_count
       FROM workspace_midis wm
       LEFT JOIN midi_masters mm ON mm.id = wm.midi_master_id
-      WHERE wm.workspace_id = ?
+      WHERE wm.workspace_id = ? AND wm.deleted_at IS NULL
       ORDER BY wm.created_at ASC
     `).all(workspaceId)
 

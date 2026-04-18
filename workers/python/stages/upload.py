@@ -23,7 +23,7 @@ def _get_youtube_token(channel_id: int) -> dict | None:
     conn = sqlite3.connect(os.environ.get('MUSIC_GEN_DB_PATH', './data/music-gen.db'))
     try:
         row = conn.execute(
-            "SELECT channel_name, youtube_channel_id FROM channels WHERE id = ?",
+            "SELECT channel_name, youtube_channel_id FROM channels WHERE id = ? AND deleted_at IS NULL",
             (channel_id,)
         ).fetchone()
         if not row:

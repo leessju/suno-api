@@ -12,14 +12,14 @@ export interface SunoAccount {
 export function listActive(): SunoAccount[] {
   const db = getDb();
   return db
-    .prepare('SELECT * FROM suno_accounts WHERE is_active = 1 ORDER BY id')
+    .prepare('SELECT * FROM suno_accounts WHERE is_active = 1 AND deleted_at IS NULL ORDER BY id')
     .all() as SunoAccount[];
 }
 
 export function findById(id: number): SunoAccount | undefined {
   const db = getDb();
   return db
-    .prepare('SELECT * FROM suno_accounts WHERE id = ?')
+    .prepare('SELECT * FROM suno_accounts WHERE id = ? AND deleted_at IS NULL')
     .get(id) as SunoAccount | undefined;
 }
 

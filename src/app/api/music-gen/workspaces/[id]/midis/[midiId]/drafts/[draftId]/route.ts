@@ -15,7 +15,7 @@ export async function PATCH(
     const body = await req.json().catch(() => ({}))
 
     const existing = db.prepare(
-      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ?'
+      'SELECT id FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ? AND deleted_at IS NULL'
     ).get(draftId, midiId)
     if (!existing) return err('NOT_FOUND', 'draft row not found', 404)
 
@@ -61,7 +61,7 @@ export async function DELETE(
 
     // 관련 job_queue 정리 (pending/processing 상태의 draft_song.generate/poll)
     const songIds = db.prepare(
-      'SELECT id FROM draft_songs WHERE draft_row_id = ?'
+      'SELECT id FROM draft_songs WHERE draft_row_id = ? AND deleted_at IS NULL'
     ).all(draftId) as { id: string }[]
     if (songIds.length > 0) {
       const ids = songIds.map(s => s.id)
@@ -72,7 +72,7 @@ export async function DELETE(
     }
 
     const result = db.prepare(
-      'DELETE FROM midi_draft_rows WHERE id = ? AND workspace_midi_id = ?'
+      'UPDATE midi_draft_rows SET deleted_at = unixepoch() WHERE id = ? AND workspace_midi_id = ?'
     ).run(draftId, midiId)
     if (!result.changes) return err('NOT_FOUND', 'draft row not found', 404)
     return ok({ deleted: draftId })

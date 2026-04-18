@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
              COUNT(ps.id) as total_steps,
              SUM(CASE WHEN ps.status = 'completed' THEN 1 ELSE 0 END) as completed_steps
       FROM pipeline_runs pr
-      LEFT JOIN channels c ON pr.channel_id = c.id
+      LEFT JOIN channels c ON pr.channel_id = c.id AND c.deleted_at IS NULL
       LEFT JOIN pipeline_steps ps ON pr.id = ps.run_id
     `
     const conditions: string[] = []
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     const db = getDb()
 
     // channel 조회
-    const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channel_id) as { sync_lens_folder?: string; channel_name: string } | undefined
+    const channel = db.prepare('SELECT * FROM channels WHERE id = ? AND deleted_at IS NULL').get(channel_id) as { sync_lens_folder?: string; channel_name: string } | undefined
     if (!channel) return NextResponse.json({ error: '채널을 찾을 수 없습니다' }, { status: 404 })
 
     const channelFolder = channel.sync_lens_folder || channel.channel_name

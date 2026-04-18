@@ -26,7 +26,7 @@ export async function GET(
 
       // 같은 label(이메일)의 계정이 이미 있으면 쿠키 업데이트, 없으면 INSERT
       const existing = db.prepare(
-        'SELECT id FROM suno_accounts WHERE label = ? AND user_id = ?'
+        'SELECT id FROM suno_accounts WHERE label = ? AND user_id = ? AND deleted_at IS NULL'
       ).get(label, user.id) as { id: number } | undefined
 
       let accountId: number

@@ -25,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: Params) {
     if (!ws) return err('NOT_FOUND', '워크스페이스를 찾을 수 없습니다.', 404)
 
     const midi = db.prepare(
-      'SELECT * FROM workspace_midis WHERE id = ? AND workspace_id = ?'
+      'SELECT * FROM workspace_midis WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
     ).get(midiId, workspaceId) as Record<string, unknown> | undefined
     if (!midi) return err('NOT_FOUND', 'MIDI를 찾을 수 없습니다.', 404)
 

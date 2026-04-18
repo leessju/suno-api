@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       FROM track_images ti
       INNER JOIN workspace_tracks wt
         ON wt.workspace_id = ti.workspace_id AND wt.suno_track_id = ti.suno_track_id
-      WHERE ti.workspace_id = ? AND wt.is_checked = 1
+      WHERE ti.workspace_id = ? AND wt.is_checked = 1 AND ti.deleted_at IS NULL
     `).all(id)
     return ok(images)
   } catch (e) {

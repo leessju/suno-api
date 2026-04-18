@@ -12,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const db = getDb()
     const account = db.prepare(
-      'SELECT id, user_id FROM suno_accounts WHERE id = ?'
+      'SELECT id, user_id FROM suno_accounts WHERE id = ? AND deleted_at IS NULL'
     ).get(Number(id)) as { id: number; user_id: string | null } | undefined
 
     if (!account) return err('NOT_FOUND', 'Suno 계정을 찾을 수 없습니다.', 404)
@@ -54,7 +54,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     const db = getDb()
     const account = db.prepare(
-      'SELECT id, user_id FROM suno_accounts WHERE id = ?'
+      'SELECT id, user_id FROM suno_accounts WHERE id = ? AND deleted_at IS NULL'
     ).get(Number(id)) as { id: number; user_id: string | null } | undefined
 
     if (!account) return err('NOT_FOUND', 'Suno 계정을 찾을 수 없습니다.', 404)
@@ -70,7 +70,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       return err('CONFLICT', `${usedBy.cnt}개의 워크스페이스에서 사용 중입니다. 먼저 워크스페이스를 이전하세요.`, 409)
     }
 
-    db.prepare('DELETE FROM suno_accounts WHERE id = ?').run(account.id)
+    db.prepare('UPDATE suno_accounts SET deleted_at = unixepoch() WHERE id = ?').run(account.id)
     return ok({ deleted: true })
   } catch (e) {
     return handleError(e)

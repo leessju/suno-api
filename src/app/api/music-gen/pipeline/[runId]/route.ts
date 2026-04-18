@@ -14,7 +14,7 @@ export async function GET(
     const run = db.prepare(`
       SELECT pr.*, c.name as channel_name, c.sync_lens_folder
       FROM pipeline_runs pr
-      LEFT JOIN channels c ON pr.channel_id = c.id
+      LEFT JOIN channels c ON pr.channel_id = c.id AND c.deleted_at IS NULL
       WHERE pr.id = ?
     `).get(runId)
 

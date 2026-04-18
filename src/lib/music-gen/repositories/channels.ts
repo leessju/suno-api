@@ -37,13 +37,13 @@ export interface UpdateChannelInput {
 
 export function findById(id: number): ChannelWithPersona | undefined {
   const db = getDb();
-  return db.prepare('SELECT * FROM channels WHERE id = ?').get(id) as ChannelWithPersona | undefined;
+  return db.prepare('SELECT * FROM channels WHERE id = ? AND deleted_at IS NULL').get(id) as ChannelWithPersona | undefined;
 }
 
 export function findByYoutubeId(youtubeChannelId: string): ChannelWithPersona | undefined {
   const db = getDb();
   return db
-    .prepare('SELECT * FROM channels WHERE LOWER(youtube_channel_id) = LOWER(?)')
+    .prepare('SELECT * FROM channels WHERE LOWER(youtube_channel_id) = LOWER(?) AND deleted_at IS NULL')
     .get(youtubeChannelId) as ChannelWithPersona | undefined;
 }
 
@@ -88,11 +88,11 @@ export function update(id: number, input: UpdateChannelInput): ChannelWithPerson
 export function list(): Channel[] {
   const db = getDb();
   return db.prepare(
-    'SELECT id, channel_name, youtube_channel_id, channel_handle, lyric_format, created_at, updated_at FROM channels ORDER BY created_at DESC'
+    'SELECT id, channel_name, youtube_channel_id, channel_handle, lyric_format, created_at, updated_at FROM channels WHERE deleted_at IS NULL ORDER BY created_at DESC'
   ).all() as Channel[];
 }
 
 export function deleteById(id: number): void {
   const db = getDb();
-  db.prepare('DELETE FROM channels WHERE id = ?').run(id);
+  db.prepare('UPDATE channels SET deleted_at = unixepoch() WHERE id = ?').run(id);
 }

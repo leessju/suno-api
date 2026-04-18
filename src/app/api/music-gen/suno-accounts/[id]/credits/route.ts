@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
     const db = getDb()
     const account = db.prepare(
-      'SELECT id, user_id FROM suno_accounts WHERE id = ?'
+      'SELECT id, user_id FROM suno_accounts WHERE id = ? AND deleted_at IS NULL'
     ).get(Number(id)) as { id: number; user_id: string | null } | undefined
 
     if (!account) return err('NOT_FOUND', 'Suno 계정을 찾을 수 없습니다.', 404)
