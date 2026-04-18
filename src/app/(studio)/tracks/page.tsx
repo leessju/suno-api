@@ -45,6 +45,7 @@ export default function TracksPage() {
   const [midis, setMidis] = useState<MidiItem[]>([])
   const [loading, setLoading] = useState(false)
   const [bgConfirmOpen, setBgConfirmOpen] = useState(false)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [bgAssigning, setBgAssigning] = useState(false)
   const [visibleCount, setVisibleCount] = useState(20)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -438,7 +439,13 @@ export default function TracksPage() {
               {song.is_confirmed === 1 ? (
                 song.render_bg_key ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/api/r2/object/${song.render_bg_key}`} alt="" className="w-10 h-10 object-cover rounded border border-border flex-shrink-0 mx-auto" title="영상이미지" />
+                  <img
+                    src={`/api/r2/object/${song.render_bg_key}`}
+                    alt=""
+                    className="w-10 h-10 object-cover rounded border border-border flex-shrink-0 mx-auto cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                    title="클릭하여 크게 보기"
+                    onClick={() => setPreviewImage(`/api/r2/object/${song.render_bg_key}`)}
+                  />
                 ) : (
                   <div className="w-10 h-10 bg-accent rounded border border-border flex-shrink-0 mx-auto flex items-center justify-center">
                     <svg className="w-4 h-4 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -516,6 +523,22 @@ export default function TracksPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 이미지 프리뷰 모달 */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={previewImage}
+            alt=""
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

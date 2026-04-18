@@ -8,6 +8,7 @@ export type SystemSettingKey =
   | 'r2_secret_access_key'
   | 'r2_endpoint'
   | 'suno_video_root'
+  | 'render_output_dir'
 
 const ENV_MAP: Record<SystemSettingKey, string> = {
   cloudflare_account_id: 'CLOUDFLARE_ACCOUNT_ID',
@@ -17,6 +18,7 @@ const ENV_MAP: Record<SystemSettingKey, string> = {
   r2_secret_access_key: 'R2_SECRET_ACCESS_KEY',
   r2_endpoint: 'R2_ENDPOINT',
   suno_video_root: 'SUNO_VIDEO_ROOT',
+  render_output_dir: 'RENDER_OUTPUT_DIR',
 }
 
 const SECRET_KEYS: Set<SystemSettingKey> = new Set([
@@ -41,6 +43,7 @@ export const SYSTEM_SETTINGS: SystemSettingConfig[] = [
   { key: 'r2_secret_access_key', label: 'Secret Access Key', hint: 'R2 시크릿 키', secret: true, group: 'Cloudflare / R2' },
   { key: 'r2_endpoint', label: 'Endpoint', hint: 'R2 엔드포인트 URL', secret: false, group: 'Cloudflare / R2' },
   { key: 'suno_video_root', label: 'Suno Video Root', hint: 'suno-video 프로젝트 경로', secret: false, group: '경로 설정' },
+  { key: 'render_output_dir', label: '렌더 출력 경로', hint: '영상 렌더링 출력 디렉토리 (기본: data/renders)', secret: false, group: '경로 설정' },
 ]
 
 /**

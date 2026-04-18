@@ -58,6 +58,10 @@ export async function POST(req: NextRequest) {
       LIMIT 1
     `)
 
+    const deleteFailedStmt = db.prepare(`
+      DELETE FROM job_queue WHERE idempotency_key = ? AND status = 'failed'
+    `)
+
     const findBackImageStmt = db.prepare(`
       SELECT id FROM back_images WHERE r2_key = ? AND deleted_at IS NULL LIMIT 1
     `)
@@ -66,6 +70,10 @@ export async function POST(req: NextRequest) {
       INSERT INTO render_image_usage (channel_id, back_image_id, image_category, used_at)
       VALUES (?, ?, ?, unixepoch())
     `)
+
+    // youtube_channel_id 조회
+    const channel = channel_id ? channelsRepo.findById(channel_id) : null
+    const youtubeChannelId = channel?.youtube_channel_id?.toLowerCase() ?? null
 
     for (const song of songs) {
       const idempotencyKey = `render.${song.suno_id}`
@@ -77,6 +85,9 @@ export async function POST(req: NextRequest) {
         continue
       }
 
+      // 실패한 기존 job 삭제 (UNIQUE 충돌 방지)
+      deleteFailedStmt.run(idempotencyKey)
+
       const jobId = crypto.randomUUID()
       const payload = JSON.stringify({
         workspace_id,
@@ -87,6 +98,7 @@ export async function POST(req: NextRequest) {
         title: song.title ?? null,
         sort_order: song.sort_order ?? 0,
         render_bg_key: song.render_bg_key ?? null,
+        youtube_channel_id: youtubeChannelId,
       })
 
       insertStmt.run(jobId, payload, idempotencyKey, Date.now())
@@ -111,6 +123,7 @@ export async function POST(req: NextRequest) {
 
     return ok({ enqueued, skipped, jobs })
   } catch (e) {
+    console.error('[render-jobs] error:', e)
     return handleError(e)
   }
 }

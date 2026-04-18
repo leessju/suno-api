@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ── 일반 키 관리 ──────────────────────────────────────────────
 
@@ -325,14 +326,15 @@ export default function KeysPage() {
               </div>
               <div>
                 <Label className="text-xs">타입</Label>
-                <select
-                  value={newAccount.type}
-                  onChange={e => setNewAccount(p => ({ ...p, type: e.target.value as GeminiAccountType }))}
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="gemini-api">Gemini API (AIza...)</option>
-                  <option value="vertex-ai-apikey">Vertex AI Express (AQ.Ab...)</option>
-                </select>
+                <Select value={newAccount.type} onValueChange={v => setNewAccount(p => ({ ...p, type: v as GeminiAccountType }))}>
+                  <SelectTrigger className="mt-1 w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gemini-api">Gemini API (AIza...)</SelectItem>
+                    <SelectItem value="vertex-ai-apikey">Vertex AI Express (AQ.Ab...)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -504,16 +506,16 @@ export default function KeysPage() {
           </div>
           {modelSaving && <span className="text-xs text-muted-foreground">저장 중...</span>}
         </div>
-        <select
-          value={geminiModel}
-          onChange={e => handleModelChange(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        >
-          {!geminiModel && <option value="">모델을 선택하세요</option>}
-          {GEMINI_MODELS.map(m => (
-            <option key={m.value} value={m.value}>{m.label}</option>
-          ))}
-        </select>
+        <Select value={geminiModel} onValueChange={handleModelChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="모델을 선택하세요" />
+          </SelectTrigger>
+          <SelectContent>
+            {GEMINI_MODELS.map(m => (
+              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ── 기타 API 키 (그룹별) ── */}
