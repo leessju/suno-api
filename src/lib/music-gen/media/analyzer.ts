@@ -3,6 +3,7 @@ import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { Midi } from '@tonejs/midi';
 import { getAccountPool } from '../gemini/account-pool';
+import * as globalSettings from '../repositories/global-settings';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -322,13 +323,17 @@ async function analyzeAudioWithGemini(filePath: string, mimeType: string): Promi
   const ref = await pool.uploadFile(filePath, mimeType);
   const mediaPart = pool.refToPart(ref);
 
+  // DB의 music_analysis_system_prompt 우선 사용, 없으면 하드코딩 폴백
+  const dbPrompt = globalSettings.get('music_analysis_system_prompt');
+  const systemInstruction = dbPrompt?.value?.trim() || ANALYSIS_SYSTEM_INSTRUCTION;
+
   const rawText = await pool.generateMultimodal(
     [mediaPart, { text: ANALYSIS_PROMPT }],
     {
       model: 'gemini-3-flash-preview', // preferred; vertex-ai falls back to gemini-2.5-flash
       temperature: 0,
       thinkingBudget: 24576, // High thinking level (matches AI Studio "High")
-      systemInstruction: ANALYSIS_SYSTEM_INSTRUCTION,
+      systemInstruction,
       responseMimeType: 'application/json',
       // responseSchema omitted: free-form JSON allows full chord voicings (maj7, m7, sus4 etc.)
     },

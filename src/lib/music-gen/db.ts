@@ -368,4 +368,18 @@ function runMigrations(db: Database.Database): void {
       db.exec(`ALTER TABLE ${table} ADD COLUMN deleted_at INTEGER;`);
     }
   }
+
+  // 019: music_analysis_system_prompt — 전체 하드코딩 프롬프트를 DB로 이관
+  const migration019 = fs.readFileSync(
+    path.join(base, 'migrations/019_system_prompts.sql'),
+    'utf-8',
+  );
+  try { db.exec(migration019); } catch { /* 이미 최신 값 존재 */ }
+
+  // 020: background_analysis_system_prompt 초기 시드
+  const migration020 = fs.readFileSync(
+    path.join(base, 'migrations/020_background_analysis_prompt.sql'),
+    'utf-8',
+  );
+  db.exec(migration020);
 }

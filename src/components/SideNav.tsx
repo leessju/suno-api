@@ -219,6 +219,11 @@ function SideNavContent({ email }: { email: string }) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild onSelect={closeMobile}>
+                <Link href="/settings/prompts" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  시스템 프롬프트 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild onSelect={closeMobile}>
                 <Link href="/admin/users" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   회원권한 관리
                 </Link>
@@ -375,6 +380,11 @@ function SideNavContent({ email }: { email: string }) {
               <DropdownMenuItem asChild>
                 <Link href="/settings/system" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
                   시스템정보 관리
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/prompts" className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer">
+                  시스템 프롬프트 관리
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

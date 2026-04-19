@@ -288,6 +288,13 @@ function DraftSongList({
                 )}
               </div>
 
+              {/* Waveform — 데스크탑 인라인 (재생버튼 왼쪽) */}
+              {isDone && (
+                <div className="hidden sm:block w-[200px] flex-shrink-0">
+                  <WaveformBar audioUrl={song.audio_url} isDone={isDone} />
+                </div>
+              )}
+
               {isDone && song.audio_url ? (
                 <SongPlayButton song={song} label={song.title || label} />
               ) : (
@@ -336,9 +343,9 @@ function DraftSongList({
             </button>
             </div>
 
-            {/* 하단: Waveform */}
+            {/* 하단: Waveform — 모바일만 */}
             {isDone && (
-              <div className="mt-1.5 ml-8">
+              <div className="mt-1.5 ml-8 sm:hidden">
                 <WaveformBar audioUrl={song.audio_url} isDone={isDone} />
               </div>
             )}
@@ -499,13 +506,26 @@ export default function MidiDetailPage() {
   const [analysisOpen, setAnalysisOpen] = useState(false)
 
 
-  // Cover곡 만들기 팝업 상태
+  // Cover곡 만들기 팝업 상태 (localStorage 복원)
   const [showMakePopup, setShowMakePopup] = useState(false)
-  const [songCount, setSongCount] = useState(3)
-  const [globalRatio, setGlobalRatio] = useState(70)
-  const [globalStyleWeight, setGlobalStyleWeight] = useState(50)
-  const [globalWeirdness, setGlobalWeirdness] = useState(50)
-  const [globalVocalGender, setGlobalVocalGender] = useState<'f' | 'm' | ''>('')  // '' = 자동
+  const [songCount, setSongCount] = useState<number>(() => Number(typeof window !== 'undefined' && localStorage.getItem('mk_songCount')) || 3)
+  const [globalRatio, setGlobalRatio] = useState<number>(() => Number(typeof window !== 'undefined' && localStorage.getItem('mk_ratio')) || 70)
+  const [globalStyleWeight, setGlobalStyleWeight] = useState<number>(() => Number(typeof window !== 'undefined' && localStorage.getItem('mk_styleWeight')) || 50)
+  const [globalWeirdness, setGlobalWeirdness] = useState<number>(() => Number(typeof window !== 'undefined' && localStorage.getItem('mk_weirdness')) || 50)
+  const [globalVocalGender, setGlobalVocalGender] = useState<'f' | 'm' | ''>(() => (typeof window !== 'undefined' ? (localStorage.getItem('mk_vocalGender') as 'f' | 'm' | '') : '') ?? '')
+  const [globalInjectionType, setGlobalInjectionType] = useState<'A' | 'B' | 'C'>(() => (typeof window !== 'undefined' ? (localStorage.getItem('mk_injectionType') as 'A' | 'B' | 'C') : null) ?? 'A')
+  const [globalLyricLang, setGlobalLyricLang] = useState<'en' | 'ja' | 'ko' | 'zh' | 'inst' | null>(() => (typeof window !== 'undefined' ? (localStorage.getItem('mk_lyricLang') as 'en' | 'ja' | 'ko' | 'zh' | 'inst' | null) : null) ?? 'inst')
+  const [globalLyricTrans, setGlobalLyricTrans] = useState<'en' | 'ja' | 'ko' | 'zh' | 'none'>(() => (typeof window !== 'undefined' ? (localStorage.getItem('mk_lyricTrans') as 'en' | 'ja' | 'ko' | 'zh' | 'none') : null) ?? 'none')
+
+  // 팝업 설정값 localStorage 저장
+  useEffect(() => { localStorage.setItem('mk_songCount', String(songCount)) }, [songCount])
+  useEffect(() => { localStorage.setItem('mk_ratio', String(globalRatio)) }, [globalRatio])
+  useEffect(() => { localStorage.setItem('mk_styleWeight', String(globalStyleWeight)) }, [globalStyleWeight])
+  useEffect(() => { localStorage.setItem('mk_weirdness', String(globalWeirdness)) }, [globalWeirdness])
+  useEffect(() => { localStorage.setItem('mk_vocalGender', globalVocalGender) }, [globalVocalGender])
+  useEffect(() => { localStorage.setItem('mk_injectionType', globalInjectionType) }, [globalInjectionType])
+  useEffect(() => { if (globalLyricLang !== null) localStorage.setItem('mk_lyricLang', globalLyricLang); else localStorage.removeItem('mk_lyricLang') }, [globalLyricLang])
+  useEffect(() => { localStorage.setItem('mk_lyricTrans', globalLyricTrans) }, [globalLyricTrans])
 
   // N곡 생성 상태
   const [generating, setGenerating] = useState(false)
@@ -1128,7 +1148,7 @@ export default function MidiDetailPage() {
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="px-3 py-1.5 bg-accent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded-md transition-colors disabled:opacity-50"
+              className="ml-auto px-3 py-1.5 bg-accent hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs rounded-md transition-colors disabled:opacity-50"
             >
               {deleting ? '삭제 중...' : '삭제'}
             </button>
@@ -1299,100 +1319,152 @@ export default function MidiDetailPage() {
               <button onClick={() => setShowMakePopup(false)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
             </div>
 
-            {/* 곡수 */}
+            {/* Injection 타입 */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-foreground">곡수</label>
-                <span className="text-xs text-muted-foreground tabular-nums">{songCount}곡</span>
+              <label className="text-xs font-medium text-foreground mb-1.5 block">Injection 타입</label>
+              <div className="flex gap-1">
+                {([
+                  ['A', 'A  기본/코드+채널', 'green'],
+                  ['B', 'B  원음+채널', 'orange'],
+                  ['C', 'C  원음+공통스타일', 'red'],
+                ] as const).map(([val, label, color]) => {
+                  const colors = {
+                    green: globalInjectionType === val
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-background text-green-600 border-green-500/40 hover:border-green-500',
+                    orange: globalInjectionType === val
+                      ? 'bg-orange-500 text-white border-orange-500'
+                      : 'bg-background text-orange-500 border-orange-400/40 hover:border-orange-400',
+                    red: globalInjectionType === val
+                      ? 'bg-red-500 text-white border-red-500'
+                      : 'bg-background text-red-500 border-red-400/40 hover:border-red-400',
+                  }
+                  return (
+                    <button key={val} type="button" onClick={() => setGlobalInjectionType(val)}
+                      className={`px-2 py-1.5 text-[11px] rounded-md border transition-colors ${colors[color]}`}>
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
-              <input
-                type="number"
-                min={1}
-                max={30}
-                value={songCount}
-                onChange={e => setSongCount(Math.min(30, Math.max(1, Number(e.target.value))))}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              />
             </div>
 
-            {/* 보컬 성별 */}
+            {/* 곡수 + 보컬 — 한 줄 */}
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 min-w-[80px]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-foreground">곡수</label>
+                  <span className="text-xs text-muted-foreground tabular-nums">{songCount}곡</span>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={songCount}
+                  onChange={e => setSongCount(Math.min(30, Math.max(1, Number(e.target.value))))}
+                  className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs font-medium text-foreground mb-1.5 block">보컬</label>
+                <div className="flex gap-1">
+                  {([['', '자동'], ['f', '여성'], ['m', '남성']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setGlobalVocalGender(val as 'f' | 'm' | '')}
+                      className={`px-2 py-1.5 text-xs rounded-md border transition-colors ${
+                        globalVocalGender === val
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 가사 언어 */}
             <div>
-              <label className="text-xs font-medium text-foreground mb-1.5 block">보컬</label>
-              <div className="flex gap-2">
-                {([['', '자동'], ['f', '여성'], ['m', '남성']] as const).map(([val, label]) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setGlobalVocalGender(val as 'f' | 'm' | '')}
-                    className={`flex-1 py-1.5 text-xs rounded-md border transition-colors ${
-                      globalVocalGender === val
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
-                    }`}
-                  >
+              <label className="text-xs font-medium text-foreground mb-1.5 block">가사 언어</label>
+              <div className="flex flex-wrap gap-1">
+                {([['en', '영어'], ['ja', '일본어(한자+독음)'], ['ko', '한국어'], ['zh', '중국어'], ['inst', 'Inst.']] as const).map(([val, label]) => (
+                  <button key={val} type="button" onClick={() => {
+                    setGlobalLyricLang(val)
+                    if (val === 'inst') {
+                      setGlobalLyricTrans('none')
+                    } else if (globalLyricLang === null || globalLyricTrans === val) {
+                      setGlobalLyricTrans('none')
+                    }
+                  }}
+                    className={`px-2 py-1.5 text-[11px] rounded-md border transition-colors ${
+                      globalLyricLang === val
+                        ? val === 'inst' ? 'bg-red-500 text-white border-red-500' : 'bg-primary text-primary-foreground border-primary'
+                        : val === 'inst' ? 'bg-background text-red-500 border-red-400/40 hover:border-red-400' : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                    }`}>
                     {label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* 독창성 (Weirdness) */}
+            {/* 가사 번역 */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-foreground">독창성</label>
-                <span className="text-xs text-muted-foreground tabular-nums">{globalWeirdness}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={globalWeirdness}
-                onChange={e => setGlobalWeirdness(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                <span>안정적</span>
-                <span>실험적</span>
+              <label className={`text-xs font-medium mb-1.5 block ${!globalLyricLang || globalLyricLang === 'inst' ? 'text-muted-foreground/40' : 'text-foreground'}`}>가사 번역</label>
+              <div className="flex flex-wrap gap-1">
+                {([['en', '영어'], ['ja', '일본어'], ['ko', '한국어'], ['zh', '중국어'], ['none', '없음']] as const).map(([val, label]) => {
+                  const transDisabled = !globalLyricLang || globalLyricLang === 'inst'
+                  const sameLang = val !== 'none' && val === globalLyricLang
+                  const isDisabled = transDisabled || sameLang
+                  return (
+                    <button key={val} type="button"
+                      disabled={isDisabled}
+                      onClick={() => setGlobalLyricTrans(val)}
+                      className={`px-2 py-1.5 text-[11px] rounded-md border transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                        !isDisabled && globalLyricTrans === val
+                          ? val === 'none' ? 'bg-red-500 text-white border-red-500' : 'bg-primary text-primary-foreground border-primary'
+                          : val === 'none' ? 'bg-background text-red-500 border-red-400/40 hover:border-red-400' : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                      }`}>
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* 스타일 반영 (Style Influence) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-foreground">스타일 반영</label>
-                <span className="text-xs text-muted-foreground tabular-nums">{globalStyleWeight}%</span>
+            {/* 독창성 · 스타일 반영 · 원곡적용률 — 한 줄 */}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-foreground">독창성</label>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{globalWeirdness}%</span>
+                </div>
+                <input type="range" min={0} max={100} value={globalWeirdness} onChange={e => setGlobalWeirdness(Number(e.target.value))} className="w-full accent-primary" />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>안정적</span><span>실험적</span>
+                </div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={globalStyleWeight}
-                onChange={e => setGlobalStyleWeight(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                <span>자유롭게</span>
-                <span>태그 충실</span>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-foreground">스타일 반영</label>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{globalStyleWeight}%</span>
+                </div>
+                <input type="range" min={0} max={100} value={globalStyleWeight} onChange={e => setGlobalStyleWeight(Number(e.target.value))} className="w-full accent-primary" />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>자유롭게</span><span>태그 충실</span>
+                </div>
               </div>
-            </div>
-
-            {/* 원곡적용률 (Audio Influence) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-foreground">원곡적용률</label>
-                <span className="text-xs text-muted-foreground tabular-nums">{globalRatio}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={globalRatio}
-                onChange={e => setGlobalRatio(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-                <span>창작 위주</span>
-                <span>원곡 유지</span>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-medium text-foreground">원곡적용률</label>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{globalRatio}%</span>
+                </div>
+                <input type="range" min={0} max={100} value={globalRatio} onChange={e => setGlobalRatio(Number(e.target.value))} className="w-full accent-primary" />
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+                  <span>창작 위주</span><span>원곡 유지</span>
+                </div>
               </div>
             </div>
 
