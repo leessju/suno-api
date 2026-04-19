@@ -502,7 +502,7 @@ export default function MidiDetailPage() {
   // Cover곡 만들기 팝업 상태
   const [showMakePopup, setShowMakePopup] = useState(false)
   const [songCount, setSongCount] = useState(3)
-  const [globalRatio, setGlobalRatio] = useState(50)
+  const [globalRatio, setGlobalRatio] = useState(70)
   const [globalStyleWeight, setGlobalStyleWeight] = useState(50)
   const [globalWeirdness, setGlobalWeirdness] = useState(50)
   const [globalVocalGender, setGlobalVocalGender] = useState<'f' | 'm' | ''>('')  // '' = 자동
@@ -940,7 +940,7 @@ export default function MidiDetailPage() {
   const sourceLabel = midi.source_type === 'youtube_video' ? 'YouTube' : midi.source_type === 'mp3_file' ? 'MP3' : 'MIDI'
 
   return (
-    <div className="space-y-3 w-full">
+    <div className="space-y-0 w-full">
       <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1416,7 +1416,7 @@ export default function MidiDetailPage() {
 
       {/* 생성 결과 그리드 */}
       {generatedRows.length > 0 && (
-        <div className="bg-background border border-border rounded-lg overflow-visible">
+        <div className="bg-background border border-border rounded-lg">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
               {generating ? (
@@ -1440,7 +1440,7 @@ export default function MidiDetailPage() {
           </div>
 
           {/* 데스크톱 테이블 헤더 (lg 이상) */}
-          <div className="hidden lg:grid grid-cols-[28px_140px_0.7fr_1fr_90px_110px] border-b border-border bg-accent/30">
+          <div className="hidden lg:grid grid-cols-[28px_120px_0.7fr_0.8fr_120px_130px] border-b border-border bg-accent/30">
             <div className="px-2 py-2 flex items-center justify-center">
               <input
                 type="checkbox"
@@ -1470,7 +1470,7 @@ export default function MidiDetailPage() {
             <div key={row.id} className="border-b border-border last:border-0">
 
               {/* 데스크톱 행 (lg 이상) */}
-              <div className="hidden lg:grid grid-cols-[28px_140px_0.7fr_1fr_90px_110px] items-start">
+              <div className="hidden lg:grid grid-cols-[28px_120px_0.7fr_0.8fr_120px_130px] items-start">
                 {/* 체크박스 */}
                 <div className="px-2 py-3 flex justify-center">
                   <input
@@ -1561,8 +1561,8 @@ export default function MidiDetailPage() {
                       <div className="h-2 bg-accent animate-pulse rounded" />
                     </div>
                   ) : (
-                    <>
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-[10px] text-muted-foreground tabular-nums flex-shrink-0">{row.originalRatio}%</span>
                         <input
                           type="range"
@@ -1570,26 +1570,26 @@ export default function MidiDetailPage() {
                           max={100}
                           value={row.originalRatio}
                           onChange={e => updateRow(row.id, { originalRatio: Number(e.target.value) })}
-                          className="flex-1 accent-primary"
+                          className="w-16 accent-primary"
                         />
-                        <div className="flex gap-1 flex-shrink-0">
-                          {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
-                            <button
-                              key={val}
-                              type="button"
-                              onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
-                              className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
-                                row.vocalGender === val
-                                  ? 'bg-primary text-primary-foreground border-primary'
-                                  : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
                       </div>
-                    </>
+                      <div className="flex gap-1">
+                        {([['', 'A'], ['m', 'M'], ['f', 'F']] as const).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => updateRow(row.id, { vocalGender: val as 'f' | 'm' | '' })}
+                            className={`px-2 py-0.5 text-[9px] rounded border transition-colors ${
+                              row.vocalGender === val
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 
