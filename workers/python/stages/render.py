@@ -15,6 +15,8 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import time
+import uuid
 from pathlib import Path
 
 import httpx
@@ -22,6 +24,10 @@ import httpx
 logger = logging.getLogger('stages.render')
 
 ROOT = Path(__file__).parent.parent.parent.parent  # 프로젝트 루트
+
+
+class RenderCancelledError(RuntimeError):
+    """사용자 취소 요청으로 렌더가 중단됨"""
 
 
 def _get_db_setting(key: str) -> str | None:
@@ -36,6 +42,13 @@ def _get_db_setting(key: str) -> str | None:
 
 # R2 경로 접두어 — /api/r2/object/ 뒤가 R2 key
 R2_API_PREFIX = '/api/r2/object/'
+
+LYRIC_TRANS_LANG: dict[str, str] = {
+    'en': 'English',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'zh': 'Chinese (Simplified)',
+}
 
 
 def _extract_r2_key(url: str) -> str | None:
@@ -107,6 +120,21 @@ def _update_progress(db_path: str, job_id: str | None, progress: str):
         logger.warning(f"progress 업데이트 실패: {e}")
 
 
+def _is_cancelled(db_path: str, job_id: str) -> bool:
+    """job_queue에서 cancel_requested_at IS NOT NULL이면 True"""
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute('PRAGMA busy_timeout=3000')
+        row = conn.execute(
+            'SELECT cancel_requested_at FROM job_queue WHERE id = ?', (job_id,)
+        ).fetchone()
+        conn.close()
+        return row is not None and row[0] is not None
+    except Exception as e:
+        logger.warning(f"cancel 체크 실패 (무시): {e}")
+        return False
+
+
 def _pick_eq_preset(style_used: str | None) -> str:
     if not style_used:
         return EQ_PRESET_A
@@ -116,9 +144,84 @@ def _pick_eq_preset(style_used: str | None) -> str:
     return EQ_PRESET_A
 
 
+def _get_gemini_api_key(db_path: str | None = None) -> str | None:
+    """GEMINI_API_KEY 조회: env → gem_global_settings → gemini_accounts"""
+    key = os.environ.get('GEMINI_API_KEY') or _get_db_setting('gemini_api_key')
+    if key:
+        logger.debug(f"[translate] API key 출처: env/gem_global_settings")
+        return key
+    try:
+        path = db_path or os.environ.get('MUSIC_GEN_DB_PATH', './data/music-gen.db')
+        conn = sqlite3.connect(str(path))
+        conn.execute('PRAGMA busy_timeout=3000')
+        row = conn.execute(
+            "SELECT api_key, name FROM gemini_accounts "
+            "WHERE is_active = 1 AND deleted_at IS NULL "
+            "ORDER BY priority DESC, id ASC LIMIT 1"
+        ).fetchone()
+        conn.close()
+        if row:
+            logger.debug(f"[translate] API key 출처: gemini_accounts (account={row[1]})")
+            return row[0]
+    except Exception as e:
+        logger.warning(f"[translate] gemini_accounts 조회 실패: {e}")
+    return None
+
+
+async def _translate_lyrics(lyrics: str, target_lang: str, db_path: str | None = None) -> str:
+    """Gemini API를 사용하여 가사를 target_lang으로 번역"""
+    logger.info(f"[translate] 번역 요청: target_lang={target_lang}, lyrics={len(lyrics)}chars")
+
+    lang_name = LYRIC_TRANS_LANG.get(target_lang)
+    if not lang_name:
+        logger.warning(f"[translate] 알 수 없는 번역 언어: {target_lang}")
+        return lyrics
+
+    api_key = _get_gemini_api_key(db_path)
+    if not api_key:
+        logger.error("[translate] Gemini API key 없음 (env, gem_global_settings, gemini_accounts 모두 없음) — 번역 건너뜀")
+        return lyrics
+
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = (
+            f"Translate the following song lyrics to {lang_name}.\n"
+            "Keep section tags like [Verse], [Chorus], [Bridge] intact.\n"
+            "Preserve the emotional tone and meaning.\n"
+            "Output ONLY the translated lyrics, no explanations.\n\n"
+            f"Lyrics:\n{lyrics}"
+        )
+        response = model.generate_content(prompt)
+        translated = response.text.strip() if response.text else ''
+        if translated:
+            logger.info(f"[translate] 번역 완료: {len(translated)}chars → {lang_name} (앞부분: {translated[:60]!r})")
+            return translated
+        else:
+            logger.error(f"[translate] Gemini 응답 비어 있음: response={response!r}")
+    except Exception as e:
+        logger.error(f"[translate] 번역 실패: {type(e).__name__}: {e}", exc_info=True)
+
+    logger.warning("[translate] 번역 실패 → 원본 가사 사용")
+    return lyrics
+
+
 async def _fetch_suno_lyrics(suno_id: str) -> str | None:
     """Suno API에서 실제 생성된 가사를 가져옴 (clip.lyric 필드)"""
     suno_cookie = os.environ.get('SUNO_COOKIE', '')
+    if not suno_cookie:
+        # env var 없으면 DB suno_accounts에서 첫 번째 활성 계정 쿠키 사용
+        try:
+            _db_path = os.environ.get('MUSIC_GEN_DB_PATH', './data/music-gen.db')
+            with sqlite3.connect(_db_path) as _conn:
+                _row = _conn.execute(
+                    'SELECT cookie FROM suno_accounts WHERE is_active = 1 AND deleted_at IS NULL ORDER BY id LIMIT 1'
+                ).fetchone()
+            if _row and _row[0]:
+                suno_cookie = _row[0]
+        except Exception:
+            pass
     if not suno_cookie:
         logger.warning("SUNO_COOKIE 없음 — 가사 조회 건너뜀")
         return None
@@ -164,7 +267,9 @@ async def _fetch_suno_lyrics(suno_id: str) -> str | None:
 
 async def _run_subprocess(cmd: list[str], timeout: int, stage: int, desc: str,
                           cwd: str | None = None,
-                          env: dict | None = None) -> tuple[bytes, bytes]:
+                          env: dict | None = None,
+                          job_id: str | None = None,
+                          db_path: str | None = None) -> tuple[bytes, bytes]:
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
@@ -172,11 +277,25 @@ async def _run_subprocess(cmd: list[str], timeout: int, stage: int, desc: str,
         cwd=cwd,
         env=env,
     )
-    try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
-        proc.kill()
-        raise RuntimeError(f"stage={stage}: {desc} timeout after {timeout}s")
+    communicate_task = asyncio.ensure_future(proc.communicate())
+    loop = asyncio.get_event_loop()
+    deadline = loop.time() + timeout
+    while True:
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            proc.kill()
+            await communicate_task
+            raise RuntimeError(f"stage={stage}: {desc} timeout after {timeout}s")
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                asyncio.shield(communicate_task), timeout=min(5.0, remaining)
+            )
+            break
+        except asyncio.TimeoutError:
+            if job_id and db_path and _is_cancelled(db_path, job_id):
+                proc.kill()
+                await communicate_task
+                raise RenderCancelledError("Cancelled by user")
 
     if proc.returncode != 0:
         raise RuntimeError(
@@ -212,6 +331,7 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
     render_style = payload.get('render_style', 'emotional-v2')
     title = payload.get('title')
     color = payload.get('color', '#8B5CF6')
+    lyric_trans = payload.get('lyric_trans')  # 'en'|'ja'|'ko'|'zh'|None
     job_id = payload.get('_job_id')
 
     # 작업 디렉토리
@@ -229,6 +349,18 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
 
     logger.info(f"렌더 파이프라인 시작: track={suno_track_id}, workspace={workspace_id}")
 
+    # ── invalidate_cache 파라미터 처리 ───────────────────────────────────
+    invalidate_cache = payload.get('invalidate_cache', 'none')
+    if invalidate_cache == 'all':
+        for f in work_dir.glob('*.done'):
+            f.unlink()
+        logger.info("invalidate_cache=all: 전체 캐시 삭제")
+    elif invalidate_cache == 'video_only':
+        done = work_dir / '6_render.done'
+        if done.exists():
+            done.unlink()
+        logger.info("invalidate_cache=video_only: 6_render.done 삭제")
+
     # ── 캐시 무효화: 이전 payload와 비교 ─────────────────────────────────
     payload_file = work_dir / 'payload.json'
     cache_keys = {
@@ -236,6 +368,7 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         'image_url': image_url,
         'render_bg_key': render_bg_key,
         'style_used': style_used,
+        'lyric_trans': lyric_trans,
     }
     if payload_file.exists():
         try:
@@ -267,10 +400,19 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
                         if done.exists():
                             done.unlink()
                         logger.info("  → step 6 캐시 삭제 (스타일 변경)")
+                    # lyric_trans 변경 → step 4(가사), 6(렌더) 삭제
+                    if 'lyric_trans' in changed:
+                        for step in ['4_lyrics', '6_render']:
+                            done = work_dir / f'{step}.done'
+                            if done.exists():
+                                done.unlink()
+                        logger.info("  → step 4-6 캐시 삭제 (lyric_trans 변경)")
         except Exception as e:
             logger.warning(f"이전 payload 비교 실패 (무시): {e}")
 
     # ── Step 1: mp3 원본 다운로드 ─────────────────────────────────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '1_download'):
         _update_progress(db_path, job_id, '1/6 download')
         logger.info(f"[1/6] mp3 다운로드: {audio_url}")
@@ -283,6 +425,8 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         logger.info("[1/6] 스킵 (캐시)")
 
     # ── Step 2: ffmpeg EQ 튜닝 ────────────────────────────────────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '2_tune'):
         _update_progress(db_path, job_id, '2/6 tune')
         eq_preset = _pick_eq_preset(style_used)
@@ -290,13 +434,16 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         logger.info(f"[2/6] EQ 튜닝: preset {preset_name}")
         await _run_subprocess(
             ['ffmpeg', '-y', '-i', str(origin_mp3), '-af', eq_preset, str(tuned_mp3)],
-            timeout=60, stage=2, desc='ffmpeg EQ'
+            timeout=300, stage=2, desc='ffmpeg EQ',
+            job_id=job_id, db_path=db_path,
         )
         _mark_done(work_dir, '2_tune')
     else:
         logger.info("[2/6] 스킵 (캐시)")
 
     # ── Step 3: Demucs 보컬 분리 (STT 전용) ──────────────────────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '3_demucs'):
         _update_progress(db_path, job_id, '3/6 demucs')
         logger.info("[3/6] Demucs 보컬 분리 시작")
@@ -304,7 +451,8 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
             await _run_subprocess(
                 [PYTHON_BIN, '-m', 'demucs', '--two-stems=vocals', '-d', 'mps',
                  '-o', tmpdir, str(origin_mp3)],
-                timeout=600, stage=3, desc='demucs'
+                timeout=600, stage=3, desc='demucs',
+                job_id=job_id, db_path=db_path,
             )
             # Demucs 출력: {tmpdir}/htdemucs/{stem}/vocals.wav
             found = glob.glob(f"{tmpdir}/htdemucs/*/vocals.wav")
@@ -317,6 +465,8 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         logger.info("[3/6] 스킵 (캐시)")
 
     # ── Step 4: 가사 텍스트 저장 (Suno API에서 실제 생성 가사) ─────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '4_lyrics'):
         _update_progress(db_path, job_id, '4/6 lyrics')
         logger.info("[4/6] Suno 가사 가져오기")
@@ -334,6 +484,10 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
             except Exception as e:
                 logger.warning(f"[4/6] DB 가사 조회 실패: {e}")
         if lyrics_text:
+            # lyric_trans가 있으면 해당 언어로 번역
+            if lyric_trans:
+                logger.info(f"[4/6] 번역 적용: {lyric_trans}")
+                lyrics_text = await _translate_lyrics(lyrics_text, lyric_trans, db_path=db_path)
             lyrics_txt.write_text(lyrics_text, encoding='utf-8')
             logger.info(f"[4/6] 완료: {len(lyrics_text)} chars")
         else:
@@ -344,6 +498,8 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         logger.info("[4/6] 스킵 (캐시)")
 
     # ── Step 5: 썸네일 다운로드 ───────────────────────────────────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '5_thumbnail'):
         _update_progress(db_path, job_id, '5/6 thumbnail')
         if image_url:
@@ -372,6 +528,8 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         logger.info("[5/6] 스킵 (캐시)")
 
     # ── Step 6: render.sh 실행 ────────────────────────────────────────────
+    if job_id and _is_cancelled(db_path, job_id):
+        raise RenderCancelledError("Cancelled by user")
     if not _step_done(work_dir, '6_render'):
         _update_progress(db_path, job_id, '6/6 render')
         render_sh = SUNO_VIDEO_ROOT / 'scripts' / 'render.sh'
@@ -385,11 +543,17 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
             if title:
                 render_env['SONG_NAME'] = title
             render_env['RENDER_STYLE'] = render_style
+            if lyric_trans:
+                render_env['LYRIC_TRANS'] = lyric_trans
+            # DB 경로를 render.sh(→ translate_lyrics.py)에 전달 — 키 관리는 DB에서 통합 관리
+            if db_path:
+                render_env['MUSIC_GEN_DB_PATH'] = str(db_path)
             await _run_subprocess(
                 ['bash', str(render_sh), str(tuned_mp3), color, str(output_mp4)],
                 timeout=1800, stage=6, desc='render.sh',
                 cwd=str(SUNO_VIDEO_ROOT),
                 env=render_env,
+                job_id=job_id, db_path=db_path,
             )
 
         if not output_mp4.exists():
@@ -425,6 +589,30 @@ async def handle_render(payload: dict, db_path: str = './data/music-gen.db'):
         payload_file.write_text(_json.dumps(cache_keys, ensure_ascii=False), encoding='utf-8')
     except Exception as e:
         logger.warning(f"payload.json 저장 실패: {e}")
+
+    # ── render_results에 완료 이력 저장 ─────────────────────────────────────
+    try:
+        _conn = sqlite3.connect(db_path)
+        _conn.execute('PRAGMA busy_timeout=5000')
+        _conn.execute('''
+            INSERT OR REPLACE INTO render_results
+              (id, workspace_id, suno_track_id, video_path, named_path, lyric_lang, lyric_trans, rendered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            str(uuid.uuid4()),
+            workspace_id,
+            suno_track_id,
+            str(output_mp4),
+            str(named_mp4),
+            payload.get('lyric_lang'),
+            lyric_trans,
+            int(time.time() * 1000),
+        ))
+        _conn.commit()
+        _conn.close()
+        logger.info(f"render_results 저장 완료: {suno_track_id}")
+    except Exception as _e:
+        logger.warning(f"render_results 저장 실패 (무시): {_e}")
 
     _update_progress(db_path, job_id, '완료')
     logger.info(f"렌더 파이프라인 완료: {output_mp4}")

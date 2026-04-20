@@ -24,6 +24,7 @@ export async function PATCH(
       'title_en', 'title_jp', 'lyrics', 'narrative',
       'suno_style_prompts', 'selected_style', 'image_key',
       'original_ratio', 'vocal_gender', 'status', 'error_msg', 'made_title', 'made_title_video',
+      'lyric_lang', 'lyric_trans', 'injection_type',
     ] as const
     type AllowedKey = typeof allowed[number]
 
@@ -44,9 +45,9 @@ export async function PATCH(
     db.prepare(`UPDATE midi_draft_rows SET ${sets.join(', ')} WHERE id = ?`).run(...values)
 
     const updated = db.prepare('SELECT * FROM midi_draft_rows WHERE id = ?').get(draftId)
-    return ok(updated)
+    return ok(updated, 200, req)
   } catch (e) {
-    return handleError(e)
+    return handleError(e, req)
   }
 }
 
@@ -67,7 +68,7 @@ export async function DELETE(
       const ids = songIds.map(s => s.id)
       // payload에 해당 draft_row_id나 draft_song_ids가 포함된 pending job 삭제
       db.prepare(
-        `DELETE FROM job_queue WHERE status IN ('pending','processing') AND (payload LIKE ? OR payload LIKE ?)`
+        `DELETE FROM job_queue WHERE status IN ('pending','processing','running') AND (payload LIKE ? OR payload LIKE ?)`
       ).run(`%${draftId}%`, `%${ids[0]}%`)
     }
 
@@ -75,8 +76,8 @@ export async function DELETE(
       'UPDATE midi_draft_rows SET deleted_at = unixepoch() WHERE id = ? AND workspace_midi_id = ?'
     ).run(draftId, midiId)
     if (!result.changes) return err('NOT_FOUND', 'draft row not found', 404)
-    return ok({ deleted: draftId })
+    return ok({ deleted: draftId }, 200, _req)
   } catch (e) {
-    return handleError(e)
+    return handleError(e, _req)
   }
 }

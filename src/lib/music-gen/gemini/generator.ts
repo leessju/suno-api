@@ -2,7 +2,7 @@ import { ChannelWithPersona } from '../repositories/channels';
 import { GeneratedContent, generatedContentSchema } from '../persona/output-schema';
 import { validateForbiddenWords, validateLyrics } from '../persona/validators';
 import { getAccountPool, getGeminiModel } from './account-pool';
-import { buildSystemPrompt, buildUserPrompt } from './prompt-builder';
+import { buildSystemPrompt, buildUserPrompt, applyLangToPrompt } from './prompt-builder';
 import { MediaAnalysis } from '../media/analyzer';
 
 // ── Generation parameter profiles (US-V2-005) ────────────────────────────────
@@ -29,36 +29,34 @@ const GENERATED_CONTENT_SCHEMA = {
 };
 
 /**
- * Gemini 가사 후처리: 한국어 조사→일본어 조사 자동 교정 + 섹션 태그 줄바꿈
+ * Gemini 가사 후처리: 섹션 태그 줄바꿈 (공통) + ja 전용 한국어 조사→일본어 교정/한글 제거
  */
-function sanitizeLyrics(lyrics: string): string {
+function sanitizeLyrics(lyrics: string, lyricLang?: string | null): string {
   let fixed = lyrics
-  // 한국어 조사 → 일본어 조사 (CJK 문자 뒤에 붙은 경우)
-  const particleMap: [RegExp, string][] = [
-    [/가(?=[,\s\u3000-\u9FFF])/g, 'が'],
-    [/의(?=[,\s\u3000-\u9FFF])/g, 'の'],
-    [/을(?=\s|,|[^\u0000-\u007F])/g, 'を'],
-    [/를(?=\s|,|[^\u0000-\u007F])/g, 'を'],
-    [/에(?=[,\s\u3000-\u9FFF])/g, 'に'],
-    [/는(?=\s|,|[^\u0000-\u007F])/g, 'は'],
-    [/도(?=\s|,|[^\u0000-\u007F])/g, 'も'],
-    [/와(?=\s|,|[^\u0000-\u007F])/g, 'と'],
-  ]
-  for (const [pattern, replacement] of particleMap) {
-    fixed = fixed.replace(pattern, replacement)
+
+  // ── ja 전용: 한국어 조사 → 일본어 조사, 한글 전체 제거 ──
+  if (!lyricLang || lyricLang === 'ja') {
+    const particleMap: [RegExp, string][] = [
+      [/가(?=[,\s\u3000-\u9FFF])/g, 'が'],
+      [/의(?=[,\s\u3000-\u9FFF])/g, 'の'],
+      [/을(?=\s|,|[^\u0000-\u007F])/g, 'を'],
+      [/를(?=\s|,|[^\u0000-\u007F])/g, 'を'],
+      [/에(?=[,\s\u3000-\u9FFF])/g, 'に'],
+      [/는(?=\s|,|[^\u0000-\u007F])/g, 'は'],
+      [/도(?=\s|,|[^\u0000-\u007F])/g, 'も'],
+      [/와(?=\s|,|[^\u0000-\u007F])/g, 'と'],
+    ]
+    for (const [pattern, replacement] of particleMap) {
+      fixed = fixed.replace(pattern, replacement)
+    }
+    fixed = fixed.replace(/독/g, 'どく')
+    fixed = fixed.replace(/[\uAC00-\uD7AF]/g, '') // 한글 전체 제거 — ja 전용
+    fixed = fixed.replace(/  +/g, ' ').replace(/^ +| +$/gm, '')
   }
+  // ko, en, zh, inst: 한글 제거 블록 skip — 가사 원형 보존
 
-  // 후리가나 안의 한글 → 히라가나 (흔한 혼동)
-  fixed = fixed.replace(/독/g, 'どく').replace(/독/g, 'どく')
-
-  // 최종 방어: 남은 한글 문자(가-힣) 모두 제거
-  fixed = fixed.replace(/[\uAC00-\uD7AF]/g, '')
-  // 빈 줄 정리 (한글 제거로 생긴 빈 공백)
-  fixed = fixed.replace(/  +/g, ' ').replace(/^ +| +$/gm, '')
-
-  // 섹션 태그가 줄바꿈 없이 연결된 경우 → 줄바꿈 추가
+  // ── 공통: 섹션 태그 줄바꿈 정리 ──
   fixed = fixed.replace(/\]\s*\[/g, ']\n[')
-  // 태그 앞에 줄바꿈이 없으면 추가
   fixed = fixed.replace(/([^\n])\[([A-Z])/g, '$1\n[$2')
 
   return fixed
@@ -76,6 +74,8 @@ export async function generateContent(
   emotionInput: string,
   mediaAnalysis?: MediaAnalysis | null,
   existingTitles: string[] = [],
+  lyricLang?: 'en' | 'ja' | 'ko' | 'zh' | 'inst' | null,
+  systemPromptOverride?: string,
 ): Promise<{ content: GeneratedContent; model: string }> {
   const pool = getAccountPool();
   const baseModel = getGeminiModel('gemini-2.5-flash');
@@ -97,8 +97,10 @@ export async function generateContent(
     attempt++;
     console.log(`${tag} attempt ${attempt}/3 시작${failureReason ? ` — 이전 실패: ${failureReason}` : ''}`);
 
-    const systemPrompt = buildSystemPrompt(channel);
-    const userPrompt = buildUserPrompt(emotionInput, previousFailedOutput, failureReason, mediaAnalysis ?? undefined, undefined, existingTitles);
+    const systemPrompt = systemPromptOverride
+      ? applyLangToPrompt(systemPromptOverride, lyricLang)
+      : buildSystemPrompt(channel, lyricLang);
+    const userPrompt = buildUserPrompt(emotionInput, previousFailedOutput, failureReason, mediaAnalysis ?? undefined, undefined, existingTitles, lyricLang);
 
     let rawText: string;
     try {
@@ -138,8 +140,26 @@ export async function generateContent(
       continue;
     }
 
-    // 가사 후처리: 한국어 조사 교정 + 태그 줄바꿈
-    validated.data.lyrics = sanitizeLyrics(validated.data.lyrics);
+    // 가사 후처리: 섹션 태그 줄바꿈 (공통) + ja 전용 한글 교정
+    validated.data.lyrics = sanitizeLyrics(validated.data.lyrics, lyricLang);
+
+    // inst: Gemini가 가사를 생성해도 강제로 비움
+    if (lyricLang === 'inst') {
+      validated.data.lyrics = ''
+    }
+
+    // 비일본어: title_jp를 title_en으로 덮어쓰기 (일어 제목 방지)
+    if (lyricLang && lyricLang !== 'ja') {
+      validated.data.title_jp = validated.data.title_en
+    }
+
+    // 빈 가사 검증 — inst는 빈 가사가 정상이므로 skip
+    if (lyricLang !== 'inst' && (!validated.data.lyrics || validated.data.lyrics.trim().length === 0)) {
+      failureReason = 'EMPTY_LYRICS';
+      previousFailedOutput = '';
+      console.error(`${tag} attempt ${attempt}/3 실패 — 빈 가사`);
+      continue;
+    }
 
     const fw = validateForbiddenWords(validated.data.lyrics, forbiddenWords);
     if (!fw.valid) {
@@ -149,7 +169,9 @@ export async function generateContent(
       continue;
     }
 
-    const lv = validateLyrics(validated.data.lyrics, channel.lyric_format);
+    // ja 이외 언어는 'free' 포맷으로 JP 전용 검증 bypass
+    const lyricFormat = (!lyricLang || lyricLang === 'ja') ? channel.lyric_format : 'free';
+    const lv = validateLyrics(validated.data.lyrics, lyricFormat);
     if (!lv.valid) {
       failureReason = `구조 위반: ${lv.violations.join('; ')}`;
       previousFailedOutput = validated.data.lyrics;

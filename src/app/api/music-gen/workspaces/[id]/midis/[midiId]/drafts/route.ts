@@ -15,7 +15,7 @@ export async function GET(
     const rows = db.prepare(`
       SELECT * FROM midi_draft_rows
       WHERE workspace_midi_id = ? AND deleted_at IS NULL
-      ORDER BY sort_order ASC, created_at ASC
+      ORDER BY created_at DESC, sort_order ASC
     `).all(midiId)
     return ok(rows)
   } catch (e) {
@@ -38,19 +38,22 @@ export async function POST(
       originalRatio?: number
       vocalGender?: string | null
       sortOrder?: number
+      lyricLang?: string | null
+      lyricTrans?: string | null
+      injectionType?: string | null
     }> = body.rows ?? []
 
     if (!rows.length) return err('BAD_REQUEST', 'rows is empty', 400)
 
     const insert = db.prepare(`
       INSERT OR REPLACE INTO midi_draft_rows
-        (id, workspace_midi_id, image_key, original_ratio, vocal_gender, sort_order, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'loading')
+        (id, workspace_midi_id, image_key, original_ratio, vocal_gender, sort_order, status, lyric_lang, lyric_trans, injection_type)
+      VALUES (?, ?, ?, ?, ?, ?, 'loading', ?, ?, ?)
     `)
 
     const insertMany = db.transaction((items: typeof rows) => {
       for (const r of items) {
-        insert.run(r.id, midiId, r.imageKey ?? null, r.originalRatio ?? 50, r.vocalGender ?? null, r.sortOrder ?? 0)
+        insert.run(r.id, midiId, r.imageKey ?? null, r.originalRatio ?? 50, r.vocalGender ?? null, r.sortOrder ?? 0, r.lyricLang ?? null, r.lyricTrans ?? null, r.injectionType ?? 'A')
       }
     })
     insertMany(rows)

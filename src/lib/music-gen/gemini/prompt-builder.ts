@@ -1,18 +1,40 @@
 import { ChannelWithPersona } from '../repositories/channels';
 import { MediaAnalysis } from '../media/analyzer';
 
-export function buildSystemPrompt(channel: ChannelWithPersona): string {
+export const LANG_LABEL: Record<string, string> = {
+  en:   '영어',
+  ja:   '일본어',
+  ko:   '한국어',
+  zh:   '중국어',
+  inst: 'Instrumental(가사없음)',
+}
+
+export function applyLangToPrompt(prompt: string, lyricLang?: string | null): string {
+  if (lyricLang === 'inst') {
+    return prompt.replaceAll('{가사언어} 가사', 'Instrumental(가사 없음)')
+  }
+  return prompt.replaceAll('{가사언어}', LANG_LABEL[lyricLang ?? 'ja'] ?? '일본어(한자+독음)')
+}
+
+export function buildSystemPrompt(channel: ChannelWithPersona, lyricLang?: string | null): string {
   const forbidden: string[] = JSON.parse(channel.forbidden_words);
   const recommended: string[] = JSON.parse(channel.recommended_words);
 
+  const isJa = !lyricLang || lyricLang === 'ja'
   const lyricFormatDesc =
     channel.lyric_format === 'jp2_en1'
-      ? '[일어 2줄 + 영문 1줄] × N연 (N≥2) 엄격 준수'
+      ? isJa
+        ? '[일어 2줄 + 영문 1줄] × N연 (N≥2) 엄격 준수'
+        : 'Suno 섹션 태그 사용, 선택 언어로 작성'
       : channel.lyric_format === 'jp_tagged'
-        ? '일본어 전용 + Suno 섹션 태그\n' +
-          '  - [Verse], [Pre-Chorus], [Chorus], [Bridge], [Outro] 등 Suno AI 규격 태그를 단독 줄에 배치\n' +
-          '  - 태그 외 모든 가사 라인은 일본어만 (영어 라인 없음)\n' +
-          '  - 태그 최소 2개 이상, 가사 라인 최소 4줄 이상'
+        ? isJa
+          ? '일본어 전용 + Suno 섹션 태그\n' +
+            '  - [Verse], [Pre-Chorus], [Chorus], [Bridge], [Outro] 등 Suno AI 규격 태그를 단독 줄에 배치\n' +
+            '  - 태그 외 모든 가사 라인은 일본어만 (영어 라인 없음)\n' +
+            '  - 태그 최소 2개 이상, 가사 라인 최소 4줄 이상'
+          : 'Suno 섹션 태그 사용\n' +
+            '  - [Verse], [Pre-Chorus], [Chorus], [Bridge], [Outro] 등 Suno AI 규격 태그를 단독 줄에 배치\n' +
+            '  - 태그 최소 2개 이상, 가사 라인 최소 4줄 이상'
         : channel.lyric_format;
 
   const constraints = [
@@ -28,7 +50,51 @@ export function buildSystemPrompt(channel: ChannelWithPersona): string {
     .filter(Boolean)
     .join('\n');
 
-  return `${channel.system_prompt}\n\n${constraints}\n\n## 채널 스타일 잠금 (절대 규칙)\n위 채널 페르소나와 음악 스타일 가이드라인은 레퍼런스 트랙 분석 데이터보다 **항상 우선**한다.\n레퍼런스 트랙의 장르(예: Metal, Rock, Hip-hop 등)를 그대로 복사하지 마라.\n레퍼런스 트랙에서 오직 **감정·분위기·BPM·조성**만 차용하고, 음악 스타일은 반드시 이 채널의 장르 가이드라인에 따라 재해석하라.`;
+  const systemPrompt = lyricLang === 'inst'
+    ? channel.system_prompt.replaceAll('{가사언어} 가사', 'Instrumental(가사 없음)')
+    : channel.system_prompt.replaceAll('{가사언어}', LANG_LABEL[lyricLang ?? 'ja'] ?? '일본어(한자+독음)')
+  return `${systemPrompt}\n\n${constraints}\n\n## 채널 스타일 잠금 (절대 규칙)\n위 채널 페르소나와 음악 스타일 가이드라인은 레퍼런스 트랙 분석 데이터보다 **항상 우선**한다.\n레퍼런스 트랙의 장르(예: Metal, Rock, Hip-hop 등)를 그대로 복사하지 마라.\n레퍼런스 트랙에서 오직 **감정·분위기·BPM·조성**만 차용하고, 음악 스타일은 반드시 이 채널의 장르 가이드라인에 따라 재해석하라.`;
+}
+
+const COMMON_LANG_RULES = [
+  '2. title_en, suno_style_prompts: English ONLY.',
+  '3. narrative: English ONLY, max 10 words. A short mood summary of the song.',
+]
+
+const LYRICS_LINE: Record<string, string> = {
+  en:   '1. lyrics field: English ONLY.',
+  ko:   '1. lyrics field: Korean (Hangul) ONLY.',
+  zh:   '1. lyrics field: Chinese (Simplified) ONLY.',
+  inst: '1. No lyrics needed — instrumental only. Set lyrics to empty string "".',
+}
+
+function buildStrictLangRule(lyricLang?: string | null): string[] {
+  if (!lyricLang || lyricLang === 'ja') {
+    return [
+      '## STRICT LANGUAGE RULE (CRITICAL — violation = instant reject)',
+      '1. lyrics field: Japanese ONLY (Kanji + Hiragana + Katakana + furigana). NO Korean (Hangul U+AC00-U+D7AF) allowed.',
+      '   - Korean particles MUST NOT appear: 가→が, 의→の, 를→を, 에→に, 는→は, 도→も, 와→と',
+      '   - WRONG: `街灯(がいとう)의光` → CORRECT: `街灯(がいとう)の光`',
+      '   - WRONG: `孤独(こ독)` → CORRECT: `孤独(こどく)`',
+      '   - Instrument/mood directives (e.g. "Electric piano...") must go in Suno tags, NOT in lyrics.',
+      ...COMMON_LANG_RULES,
+      '4. Furigana must use Hiragana/Katakana ONLY. No Hangul inside furigana parentheses.',
+    ]
+  }
+  const lyricsLine = LYRICS_LINE[lyricLang]
+  if (!lyricsLine) return []
+  const titleRule = lyricLang === 'ko'
+    ? '2. title_en: 한국어 제목 ONLY. suno_style_prompts: English ONLY.'
+    : lyricLang === 'zh'
+    ? '2. title_en: 中文标题 ONLY. suno_style_prompts: English ONLY.'
+    : COMMON_LANG_RULES[0]
+  const narrativeRule = lyricLang === 'ko'
+    ? '3. narrative: 한국어 ONLY, 최대 10단어. 곡의 분위기를 짧게 요약.'
+    : COMMON_LANG_RULES[1]
+  const extraRules = (lyricLang === 'zh' || lyricLang === 'en')
+    ? ['   - Instrument/mood directives (e.g. "Atmospheric synth swells...") must go in Suno tags, NOT in lyrics.']
+    : []
+  return ['## STRICT LANGUAGE RULE', lyricsLine, ...extraRules, titleRule, narrativeRule]
 }
 
 export function buildUserPrompt(
@@ -38,6 +104,7 @@ export function buildUserPrompt(
   mediaAnalysis?: MediaAnalysis,
   originalRatio: number = 50,
   existingTitles: string[] = [],
+  lyricLang?: string | null,
 ): string {
   const mediaLines: string[] = [];
 
@@ -90,7 +157,12 @@ export function buildUserPrompt(
   mediaLines.push('- 채널의 감성 세계관에서 독창적인 은유나 시적 표현을 찾아 제목을 짓는다.');
   mediaLines.push('- 같은 단어를 반복 사용하지 않는다. 매번 새로운 시각적·감각적 이미지로 표현하라.');
   if (existingTitles.length > 0) {
-    // 제목에서 핵심 단어 추출 → 빈도 상위 15개만 전달 (토큰 절약)
+    // 최근 20개 제목 직접 금지 (정확한 재사용 방지)
+    const recentTitles = existingTitles.slice(0, 20)
+    mediaLines.push(`- **이미 사용된 제목 (절대 재사용 금지)**: ${recentTitles.join(', ')}`)
+    mediaLines.push('- 위 제목과 동일하거나 유사한 단어 조합을 절대 사용하지 마라.')
+
+    // 빈도 상위 단어 추가 경고 (토큰 절약)
     const stopWords = new Set(['the','a','an','of','in','on','at','to','for','and','or','my','your','no','is','it','this','that','with','from']);
     const wordFreq = new Map<string, number>();
     for (const title of existingTitles) {
@@ -116,7 +188,9 @@ export function buildUserPrompt(
   );
   mediaLines.push('');
   mediaLines.push('### 요약(narrative)');
-  mediaLines.push('narrative field: English ONLY, max 10 words. A short mood summary of the song.');
+  mediaLines.push(lyricLang === 'ko'
+    ? 'narrative field: 한국어 ONLY, 최대 10단어. 곡의 분위기를 짧게 요약.'
+    : 'narrative field: English ONLY, max 10 words. A short mood summary of the song.');
   mediaLines.push('');
 
   if (mediaAnalysis) {
@@ -199,8 +273,17 @@ export function buildUserPrompt(
   }
 
   if (previousFailedOutput && failureReason) {
+    // 금지어 실패인 경우 해당 단어를 명시적으로 강조
+    const isForbiddenWordFailure = failureReason.startsWith('금지어 포함:')
+    const forbiddenWordWarning = isForbiddenWordFailure
+      ? [`## ⛔ FORBIDDEN WORD VIOLATION — CRITICAL`,
+         `다음 단어는 절대 사용 금지 (이전 출력에서 발견됨): **${failureReason.replace('금지어 포함: ', '')}**`,
+         `이 단어 및 유사 표현을 완전히 대체하는 새로운 표현을 사용하라.`,
+         ``]
+      : []
     return [
       ...mediaLines,
+      ...forbiddenWordWarning,
       `이전 출력이 아래 이유로 거부되었습니다: ${failureReason}`,
       ``,
       `거부된 출력:`,
@@ -211,6 +294,8 @@ export function buildUserPrompt(
       `위 문제를 반드시 수정하여 다시 생성해 주세요.`,
       ``,
       `감정/분위기 입력: ${emotionInput}`,
+      ``,
+      ...buildStrictLangRule(lyricLang),
     ].join('\n');
   }
 
@@ -218,16 +303,8 @@ export function buildUserPrompt(
     ...mediaLines,
     emotionInput ? `감정/분위기 입력: ${emotionInput}` : '',
     '',
-    '## STRICT LANGUAGE RULE (CRITICAL — violation = instant reject)',
-    '1. lyrics field: Japanese ONLY (Kanji + Hiragana + Katakana + furigana). NO Korean (Hangul U+AC00-U+D7AF) allowed.',
-    '   - Korean particles MUST NOT appear: 가→が, 의→の, 를→を, 에→に, 는→は, 도→も, 와→と',
-    '   - WRONG: `街灯(がいとう)의光` → CORRECT: `街灯(がいとう)の光`',
-    '   - WRONG: `孤独(こ독)` → CORRECT: `孤独(こどく)`',
-    '   - Instrument/mood directives (e.g. "Electric piano...") must go in Suno tags, NOT in lyrics.',
-    '2. title_en, suno_style_prompts: English ONLY.',
-    '3. narrative: English ONLY, max 10 words. A short mood summary of the song.',
-    '4. Furigana must use Hiragana/Katakana ONLY. No Hangul inside furigana parentheses.',
-  ].filter(line => line !== null).join('\n');
+    ...buildStrictLangRule(lyricLang),
+  ].join('\n');
 }
 
 function formatTime(seconds: number): string {

@@ -1512,7 +1512,7 @@ export default function MidiDetailPage() {
           </div>
 
           {/* 데스크톱 테이블 헤더 (lg 이상) */}
-          <div className="hidden lg:grid grid-cols-[28px_120px_0.7fr_0.8fr_120px_130px] border-b border-border bg-accent/30">
+          <div className="hidden lg:grid grid-cols-[28px_minmax(160px,_0.3fr)_0.7fr_0.8fr_120px_130px] border-b border-border bg-accent/30">
             <div className="px-2 py-2 flex items-center justify-center">
               <input
                 type="checkbox"
@@ -1542,7 +1542,7 @@ export default function MidiDetailPage() {
             <div key={row.id} className="border-b border-border last:border-0">
 
               {/* 데스크톱 행 (lg 이상) */}
-              <div className="hidden lg:grid grid-cols-[28px_120px_0.7fr_0.8fr_120px_130px] items-start">
+              <div className="hidden lg:grid grid-cols-[28px_minmax(160px,_0.3fr)_0.7fr_0.8fr_120px_130px] items-start">
                 {/* 체크박스 */}
                 <div className="px-2 py-3 flex justify-center">
                   <input
@@ -1555,13 +1555,13 @@ export default function MidiDetailPage() {
                 </div>
 
                 {/* 제목 */}
-                <div className="px-2 py-2">
+                <div className="px-2 py-2 overflow-hidden min-w-0">
                   {row.loading ? (
                     <div className="h-2.5 bg-accent animate-pulse rounded w-3/4" />
                   ) : (
                     <>
-                      {row.title_en && <p className="text-[11px] font-medium text-foreground break-words leading-tight">{row.title_en}</p>}
-                      {row.title_jp && <p className="text-[10px] text-muted-foreground break-words leading-tight mt-0.5">{row.title_jp}</p>}
+                      {row.title_en && <p className="text-[11px] font-medium text-foreground truncate leading-tight">{row.title_en}</p>}
+                      {row.title_jp && <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">{row.title_jp}</p>}
                     </>
                   )}
                 </div>
@@ -1731,8 +1731,9 @@ export default function MidiDetailPage() {
                       </div>
                     ) : row.title_en ? (
                       <>
-                        <p className="text-xs font-medium text-foreground break-words leading-tight">{row.title_en}</p>
-                        {row.title_jp && <p className="text-[10px] text-muted-foreground break-words leading-tight">{row.title_jp}</p>}
+                        <p className="text-xs font-medium text-foreground truncate leading-tight">
+                          {row.title_en}{row.title_jp ? ` · ${row.title_jp}` : ''}
+                        </p>
                       </>
                     ) : null}
                   </div>

@@ -3,8 +3,14 @@ import { ok, err, handleError } from '@/lib/music-gen/api-helpers'
 import { getDb } from '@/lib/music-gen/db'
 import { generateContent } from '@/lib/music-gen/gemini/generator'
 import { ChannelWithPersona } from '@/lib/music-gen/repositories/channels'
+import { MediaAnalysis } from '@/lib/music-gen/media/analyzer'
 
 type Params = { params: Promise<{ id: string }> }
+
+function parseAnalysis(json: string | null): MediaAnalysis | null {
+  if (!json) return null
+  try { return JSON.parse(json) as MediaAnalysis } catch { return null }
+}
 
 export async function POST(
   req: NextRequest,
@@ -29,6 +35,10 @@ export async function POST(
 
     const body = await req.json().catch(() => ({}))
     const emotion_input = (body.emotion_input as string) ?? ''
+    const lyric_lang = (body.lyric_lang as 'en' | 'ja' | 'ko' | 'zh' | 'inst' | null) ?? null
+    const injection_type = (body.injection_type as 'A' | 'B' | 'C') ?? 'A'
+    const analysis_json = (body.analysis_json as string | null) ?? null
+    const background_analysis_json = (body.background_analysis_json as string | null) ?? null
 
     const channel: ChannelWithPersona = {
       id: workspace.ch_id as number,
@@ -51,7 +61,20 @@ export async function POST(
         AND deleted_at IS NULL
     `).all(id) as { title_en: string }[]).map(r => r.title_en)
 
-    const { content, model } = await generateContent(channel, emotion_input, null, existingTitles)
+    // injection_type에 따라 분석 JSON 및 시스템 프롬프트 결정
+    const mediaAnalysis: MediaAnalysis | null =
+      injection_type === 'A' ? parseAnalysis(analysis_json)
+      : parseAnalysis(background_analysis_json) // B, C 모두 배경음 분석 사용
+
+    let systemPromptOverride: string | undefined
+    if (injection_type === 'C') {
+      const setting = db.prepare(
+        "SELECT value FROM gem_global_settings WHERE key = 'music_lyrics_system_prompt'"
+      ).get() as { value: string } | undefined
+      if (setting?.value?.trim()) systemPromptOverride = setting.value.trim()
+    }
+
+    const { content, model } = await generateContent(channel, emotion_input, mediaAnalysis, existingTitles, lyric_lang, systemPromptOverride)
 
     return ok({ content, model }, 201)
   } catch (e) {

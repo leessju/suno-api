@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/music-gen/db'
+import logger from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,13 +24,22 @@ export async function GET(req: NextRequest) {
                mdr.lyrics as draft_lyrics,
                mdr.selected_style as draft_selected_style,
                mdr.image_key as draft_image_key,
+               mdr.injection_type,
+               mdr.lyric_lang,
+               mdr.lyric_trans,
                wm.workspace_id,
                w.name as workspace_name,
-               wm.label as midi_label
+               wm.label as midi_label,
+               r.rendered_at
         FROM draft_songs ds
         JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
         JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id AND wm.deleted_at IS NULL
         JOIN workspaces w ON w.id = wm.workspace_id
+        LEFT JOIN (
+          SELECT suno_track_id, MAX(rendered_at) as rendered_at
+          FROM render_results WHERE deleted_at IS NULL
+          GROUP BY suno_track_id
+        ) r ON r.suno_track_id = ds.suno_id
         WHERE ds.deleted_at IS NULL
       `
       const params: (string | number)[] = []
@@ -41,7 +51,7 @@ export async function GET(req: NextRequest) {
       const songs = db.prepare(sql).all(...params)
       return NextResponse.json({ data: songs })
     } catch (e) {
-      console.error('[tracks/draft_songs]', e)
+      logger.error('[tracks/draft_songs]', e)
       return NextResponse.json({ data: [] })
     }
   }
@@ -72,7 +82,7 @@ export async function GET(req: NextRequest) {
     const tracks = db.prepare(sql).all(...params)
     return NextResponse.json({ data: tracks })
   } catch (e) {
-    console.error('[tracks]', e)
+    logger.error('[tracks]', e)
     return NextResponse.json({ data: [] })
   }
 }

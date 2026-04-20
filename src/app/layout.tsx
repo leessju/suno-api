@@ -22,9 +22,15 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`dark ${inter.variable}`} suppressHydrationWarning>
       <head>
+        {/* localStorage에서 테마 동기 로드 — 화면 깜박임 방지 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme')??'dark';if(t==='light')document.documentElement.classList.remove('dark');else document.documentElement.classList.add('dark');}catch(e){}`
+          }}
+        />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           {children}
         </ThemeProvider>

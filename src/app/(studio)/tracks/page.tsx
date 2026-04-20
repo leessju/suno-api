@@ -32,6 +32,10 @@ interface DraftSong {
   draft_selected_style: string | null
   draft_image_key: string | null
   render_bg_key: string | null
+  injection_type: 'A' | 'B' | 'C' | null
+  lyric_lang: 'en' | 'ja' | 'ko' | 'zh' | 'inst' | null
+  lyric_trans: 'en' | 'ja' | 'ko' | 'zh' | 'none' | null
+  rendered_at: number | null
 }
 
 interface Workspace { id: string; name: string }
@@ -68,7 +72,7 @@ export default function TracksPage() {
     if (!workspaceId) return
     fetch(`/api/music-gen/workspaces/${workspaceId}/midis`)
       .then(r => r.json())
-      .then(d => setMidis(d.data ?? d ?? []))
+      .then(d => setMidis(Array.isArray(d) ? d : Array.isArray(d.data) ? d.data : []))
   }, [workspaceId])
 
   const loadSongs = useCallback(() => {
@@ -224,26 +228,53 @@ export default function TracksPage() {
 
   const [rendering, setRendering] = useState(false)
   const [renderDone, setRenderDone] = useState(false)
+  const [renderConfirmOpen, setRenderConfirmOpen] = useState(false)
 
-  const handleRender = async () => {
+  const submitRender = async (invalidate_cache: 'none' | 'video_only' | 'all') => {
     if (!workspaceId || rendering) return
     setRendering(true)
     try {
       const res = await fetch('/api/music-gen/render-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspace_id: workspaceId, channel_id: selectedChannel?.id }),
+        body: JSON.stringify({ workspace_id: workspaceId, channel_id: selectedChannel?.id, invalidate_cache }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const msg = body?.error?.message ?? `HTTP ${res.status}`
+        console.error('[render-jobs]', res.status, msg)
+        toast(msg)
+        setRendering(false)
+        return
+      }
       setRenderDone(true)
       setTimeout(() => {
         setRenderDone(false)
         setRendering(false)
       }, 3000)
     } catch (e) {
-      console.error('[render-jobs]', e)
+      const msg = e instanceof Error ? e.message : '알 수 없는 오류'
+      console.error('[render-jobs]', msg)
+      toast(msg)
       setRendering(false)
     }
+  }
+
+  const handleRenderClick = async () => {
+    if (!workspaceId || rendering) return
+    // 기존 렌더 이력 확인
+    try {
+      const res = await fetch(`/api/music-gen/renders?workspace_id=${workspaceId}`)
+      if (res.ok) {
+        const data = await res.json()
+        const items = Array.isArray(data) ? data : (data.data ?? [])
+        if (items.length > 0) {
+          setRenderConfirmOpen(true)
+          return
+        }
+      }
+    } catch { /* 확인 실패 시 바로 실행 */ }
+    submitRender('none')
   }
 
   const sortedSongs = sortSongs(songs)
@@ -274,7 +305,7 @@ export default function TracksPage() {
             {bgAssigning ? '할당 중...' : '영상이미지 변경'}
           </button>
           <button
-            onClick={handleRender}
+            onClick={handleRenderClick}
             disabled={!workspaceId || !selectedChannel || confirmedCount === 0 || rendering}
             className="px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-sm rounded-lg transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -466,9 +497,35 @@ export default function TracksPage() {
 
               {/* 제목 + 스타일 */}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground truncate">
-                  {song.title ?? '(제목 없음)'}
-                </p>
+                <div className="flex items-center gap-1 flex-wrap">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {song.title ?? '(제목 없음)'}
+                  </p>
+                  {song.lyric_lang && (
+                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 text-[9px] font-medium leading-none">
+                      {({ en:'영어', ja:'일어', ko:'한국어', zh:'중국어', inst:'Inst.' } as Record<string,string>)[song.lyric_lang] ?? song.lyric_lang}
+                    </span>
+                  )}
+                  {song.lyric_trans && song.lyric_trans !== 'none' && (
+                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-medium leading-none">
+                      번역→{({ en:'영어', ja:'일어', ko:'한국어', zh:'중국어' } as Record<string,string>)[song.lyric_trans] ?? song.lyric_trans}
+                    </span>
+                  )}
+                  {song.injection_type === 'B' && (
+                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-500 text-[9px] font-medium leading-none">배경음+채널</span>
+                  )}
+                  {song.injection_type === 'C' && (
+                    <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-medium leading-none">배경음+공통</span>
+                  )}
+                  {song.rendered_at && (
+                    <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-500 text-[9px] font-medium leading-none" title={`영상 완료: ${new Date(song.rendered_at).toLocaleDateString('ko-KR')}`}>
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                      영상완료
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-muted-foreground truncate">
                   {song.style_used ?? song.draft_selected_style ?? '—'}
                 </p>
@@ -520,6 +577,33 @@ export default function TracksPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction onClick={handleAssignBgConfirm}>확인</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 재렌더 확인 다이얼로그 */}
+      <AlertDialog open={renderConfirmOpen} onOpenChange={setRenderConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>이미 생성된 영상이 있습니다</AlertDialogTitle>
+            <AlertDialogDescription>
+              이 워크스페이스의 영상이 이미 존재합니다. 어떻게 하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setRenderConfirmOpen(false)}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => { setRenderConfirmOpen(false); submitRender('video_only') }}
+            >
+              영상만 재생성
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              onClick={() => { setRenderConfirmOpen(false); submitRender('all') }}
+            >
+              전체 재생성
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

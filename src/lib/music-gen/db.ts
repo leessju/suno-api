@@ -300,6 +300,11 @@ function runMigrations(db: Database.Database): void {
     db.exec('ALTER TABLE job_queue ADD COLUMN progress TEXT;');
   }
 
+  // 031-patch: job_queue.cancel_requested_at 컬럼 추가 (렌더 취소 신호)
+  if (!jobQueueCols.some(c => c.name === 'cancel_requested_at')) {
+    db.exec('ALTER TABLE job_queue ADD COLUMN cancel_requested_at INTEGER;');
+  }
+
   // 025: user_api_keys 테이블 (IF NOT EXISTS — 멱등)
   db.exec(`
     CREATE TABLE IF NOT EXISTS user_api_keys (
@@ -382,4 +387,62 @@ function runMigrations(db: Database.Database): void {
     'utf-8',
   );
   db.exec(migration020);
+
+  // 021-patch: midi_draft_rows.lyric_lang, lyric_trans 컬럼 추가
+  const draftRowColsV2 = db.pragma('table_info(midi_draft_rows)') as Array<{ name: string }>;
+  if (!draftRowColsV2.some(c => c.name === 'lyric_lang')) {
+    db.exec("ALTER TABLE midi_draft_rows ADD COLUMN lyric_lang TEXT CHECK(lyric_lang IN ('en','ja','ko','zh','inst'));");
+  }
+  if (!draftRowColsV2.some(c => c.name === 'lyric_trans')) {
+    db.exec("ALTER TABLE midi_draft_rows ADD COLUMN lyric_trans TEXT CHECK(lyric_trans IN ('en','ja','ko','zh','none'));");
+  }
+
+  // 029-patch: midi_masters.background_mp3_r2_key, background_analysis_json 컬럼 추가 (배경음 분석)
+  const midiMasterCols = db.pragma('table_info(midi_masters)') as Array<{ name: string }>;
+  if (!midiMasterCols.some(c => c.name === 'background_mp3_r2_key')) {
+    db.exec('ALTER TABLE midi_masters ADD COLUMN background_mp3_r2_key TEXT;');
+  }
+  if (!midiMasterCols.some(c => c.name === 'background_analysis_json')) {
+    db.exec('ALTER TABLE midi_masters ADD COLUMN background_analysis_json TEXT;');
+  }
+
+  // 030-patch: midi_draft_rows.injection_type 컬럼 추가 (A=MIDI분석+채널, B=배경음+채널, C=배경음+공통)
+  const draftRowColsV3 = db.pragma('table_info(midi_draft_rows)') as Array<{ name: string }>;
+  if (!draftRowColsV3.some(c => c.name === 'injection_type')) {
+    db.exec("ALTER TABLE midi_draft_rows ADD COLUMN injection_type TEXT DEFAULT 'A';");
+  }
+
+  // 022-patch: workspaces.deleted_at 컬럼 추가 (soft delete)
+  const workspaceColsDeleted = db.pragma('table_info(workspaces)') as Array<{ name: string }>;
+  if (!workspaceColsDeleted.some(c => c.name === 'deleted_at')) {
+    db.exec('ALTER TABLE workspaces ADD COLUMN deleted_at INTEGER;');
+  }
+
+  // E2E 테스트 워크스페이스 정리 (이름 패턴 기준 soft delete)
+  db.exec(`
+    UPDATE workspaces SET deleted_at = unixepoch() * 1000
+    WHERE deleted_at IS NULL AND (name LIKE '%e2e%' OR name LIKE 'E2E%' OR name LIKE 'e2e%')
+  `);
+
+  // 031: render_results 테이블 — 렌더 완료 이력 저장
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS render_results (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      suno_track_id TEXT NOT NULL,
+      video_path TEXT,
+      named_path TEXT,
+      lyric_lang TEXT,
+      lyric_trans TEXT,
+      rendered_at INTEGER NOT NULL,
+      deleted_at INTEGER,
+      UNIQUE(workspace_id, suno_track_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_render_results_workspace ON render_results(workspace_id);
+  `);
+  // 031-patch: render_results.deleted_at 컬럼 추가 (기존 DB 대응)
+  const renderResultCols = db.pragma('table_info(render_results)') as Array<{ name: string }>;
+  if (!renderResultCols.some(c => c.name === 'deleted_at')) {
+    db.exec('ALTER TABLE render_results ADD COLUMN deleted_at INTEGER;');
+  }
 }

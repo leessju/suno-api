@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth/guards'
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/music-gen/renders?workspace_id=&type=track|merge|short
+// GET /api/music-gen/renders?workspace_id=
 export async function GET(req: NextRequest) {
   try {
     const { user, response } = await requireUser()
@@ -19,20 +19,21 @@ export async function GET(req: NextRequest) {
     const params: unknown[] = [user.id]
 
     if (workspace_id) {
-      conditions.push('ti.workspace_id = ?')
+      conditions.push('rr.workspace_id = ?')
       params.push(workspace_id)
     }
 
     const rows = db.prepare(`
-      SELECT ti.id, ti.workspace_id, ti.suno_track_id, ti.r2_key,
-             ti.source_url, ti.source_type, ti.assigned_at,
+      SELECT rr.id, rr.workspace_id, rr.suno_track_id,
+             rr.video_path, rr.named_path, rr.lyric_lang, rr.lyric_trans, rr.rendered_at,
              w.name as workspace_name,
-             ds.title_jp, ds.title_en, ds.suno_song_id, ds.is_confirmed
-      FROM track_images ti
-      LEFT JOIN workspaces w ON w.id = ti.workspace_id
-      LEFT JOIN draft_songs ds ON ds.suno_song_id = ti.suno_track_id AND ds.deleted_at IS NULL
-      WHERE ${conditions.join(' AND ')} AND ti.deleted_at IS NULL
-      ORDER BY ti.assigned_at DESC
+             mdr.title_jp, mdr.title_en
+      FROM render_results rr
+      LEFT JOIN workspaces w ON w.id = rr.workspace_id
+      LEFT JOIN draft_songs ds ON ds.suno_id = rr.suno_track_id AND ds.deleted_at IS NULL
+      LEFT JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
+      WHERE ${conditions.join(' AND ')} AND rr.deleted_at IS NULL
+      ORDER BY rr.rendered_at DESC
       LIMIT 300
     `).all(...params)
 

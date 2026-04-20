@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { ok, handleError } from '@/lib/music-gen/api-helpers'
+import logger from '@/lib/logger'
 import { getDb } from '@/lib/music-gen/db'
 import { requireUser } from '@/lib/auth/guards'
 import * as channelsRepo from '@/lib/music-gen/repositories/channels'
@@ -13,17 +14,22 @@ export async function POST(req: NextRequest) {
     const { response } = await requireUser()
     if (response) return response
 
-    const { workspace_id, channel_id } = await req.json()
+    const { workspace_id, channel_id, invalidate_cache } = await req.json()
     if (!workspace_id) {
-      return handleError(new Error('workspace_id is required'))
+      return handleError(new Error('workspace_id is required'), req)
     }
+    const cacheMode: 'none' | 'video_only' | 'all' =
+      invalidate_cache === 'video_only' ? 'video_only'
+      : invalidate_cache === 'all' ? 'all'
+      : 'none'
 
     const db = getDb()
 
     // is_confirmed=1 이고 audio_url이 있는 draft_songs 조회 (3-way JOIN)
     const songs = db.prepare(`
       SELECT ds.id, ds.suno_id, ds.title, ds.audio_url, ds.image_url,
-             ds.style_used, ds.sort_order, ds.render_bg_key
+             ds.style_used, ds.sort_order, ds.render_bg_key,
+             mdr.lyric_lang, mdr.lyric_trans
       FROM draft_songs ds
       JOIN midi_draft_rows mdr ON mdr.id = ds.draft_row_id AND mdr.deleted_at IS NULL
       JOIN workspace_midis wm ON wm.id = mdr.workspace_midi_id AND wm.deleted_at IS NULL
@@ -41,6 +47,8 @@ export async function POST(req: NextRequest) {
       style_used: string | null
       sort_order: number
       render_bg_key: string | null
+      lyric_lang: string | null
+      lyric_trans: string | null
     }>
 
     let enqueued = 0
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest) {
     `)
 
     const deleteFailedStmt = db.prepare(`
-      DELETE FROM job_queue WHERE idempotency_key = ? AND status = 'failed'
+      DELETE FROM job_queue WHERE idempotency_key = ? AND status IN ('failed', 'done')
     `)
 
     const findBackImageStmt = db.prepare(`
@@ -90,6 +98,7 @@ export async function POST(req: NextRequest) {
 
       const jobId = crypto.randomUUID()
       const payload = JSON.stringify({
+        _job_id: jobId,
         workspace_id,
         suno_track_id: song.suno_id,
         audio_url: song.audio_url,
@@ -99,6 +108,9 @@ export async function POST(req: NextRequest) {
         sort_order: song.sort_order ?? 0,
         render_bg_key: song.render_bg_key ?? null,
         youtube_channel_id: youtubeChannelId,
+        lyric_lang: song.lyric_lang ?? null,
+        lyric_trans: song.lyric_trans && song.lyric_trans !== 'none' ? song.lyric_trans : null,
+        invalidate_cache: cacheMode,
       })
 
       insertStmt.run(jobId, payload, idempotencyKey, Date.now())
@@ -108,7 +120,7 @@ export async function POST(req: NextRequest) {
         const backImage = findBackImageStmt.get(song.render_bg_key) as { id: number } | undefined
         if (backImage) {
           const channel = channelsRepo.findById(channel_id)
-          const youtubeId = channel?.youtube_channel_id.toLowerCase()
+          const youtubeId = channel?.youtube_channel_id?.toLowerCase()
           const isThumbnail = youtubeId
             ? song.render_bg_key.includes(`/${youtubeId}/thumbnail/`)
             : false
@@ -121,9 +133,9 @@ export async function POST(req: NextRequest) {
       jobs.push({ id: jobId, suno_id: song.suno_id, title: song.title })
     }
 
-    return ok({ enqueued, skipped, jobs })
+    return ok({ enqueued, skipped, jobs }, 200, req)
   } catch (e) {
-    console.error('[render-jobs] error:', e)
-    return handleError(e)
+    logger.error('[render-jobs] error:', e)
+    return handleError(e, req)
   }
 }
